@@ -10,27 +10,20 @@ import Foreign.C
 import Foreign.Ptr
 import Foreign.ForeignPtr
 import Foreign.Marshal
-import Foreign.Marshal.Utils
 
-import Data.Typeable
 import Data.IORef
-import Data.Default.Class
 import           Data.ByteString.Internal (c2w)
 import qualified Data.ByteString as S
-import qualified Data.ByteString.Lazy as L
 
 import Text.XML.Pugi.Foreign.Const
-import Text.XML.Pugi.Foreign.Document
-import System.IO.Unsafe
+import Text.XML.Pugi.Foreign.Types
 
-data Attr
-
+-- attr
 foreign import ccall unsafe delete_attr :: Ptr Attr -> IO ()
 foreign import ccall unsafe attr_name   :: Ptr Attr -> IO CString
 foreign import ccall unsafe attr_value  :: Ptr Attr -> IO CString
 
-newtype Node  = Node (ForeignPtr Node) deriving Show
-
+-- node
 foreign import ccall unsafe "&delete_node" p'delete_node
     :: FinalizerPtr Node
 
@@ -164,8 +157,8 @@ class NodeLike n where
         bracket (node_path p (fromIntegral $ c2w del)) free $ S.packCString
 
     firstElementByPath :: Char -> S.ByteString -> n -> IO (Maybe Node)
-    firstElementByPath del path node = nodeCommon node $ \p ->
-        S.useAsCString path $ \d -> node_first_element_by_path p d (fromIntegral $ c2w del)
+    firstElementByPath del path_ node = nodeCommon node $ \p ->
+        S.useAsCString path_ $ \d -> node_first_element_by_path p d (fromIntegral $ c2w del)
 
     root :: n -> IO (Maybe Node)
     root node = nodeCommon node $ node_root
@@ -174,13 +167,13 @@ class NodeLike n where
 mapSiblingM :: NodeLike n => (Node -> IO a) -> n -> IO [a]
 mapSiblingM func node = do
     ref <- newIORef id
-    mapSiblingM (\n -> func n >>= \a -> modifyIORef ref (\f -> f . (a:))) node
+    mapSiblingM_ (\n -> func n >>= \a -> modifyIORef ref (\f -> f . (a:))) node
     readIORef ref >>= \a -> return (a [])
 
 mapAttrsM :: NodeLike n => (S.ByteString -> S.ByteString -> IO a) -> n -> IO [a]
 mapAttrsM func n = do
     ref <- newIORef id
-    mapAttrsM (\k v -> func k v >>= \a -> modifyIORef ref (\f -> f . (a:))) n
+    mapAttrsM_ (\k v -> func k v >>= \a -> modifyIORef ref (\f -> f . (a:))) n
     readIORef ref >>= \a -> return (a [])
 
 instance NodeLike Document where foreignPtr (Document f) = f

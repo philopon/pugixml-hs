@@ -16,6 +16,7 @@ library
   exposed-modules:     Text.XML.Pugi.Foreign.Const
                        Text.XML.Pugi.Foreign.Node
                        Text.XML.Pugi.Foreign.Document
+                       Text.XML.Pugi.Foreign.Types
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8
@@ -24,5 +25,6 @@ library
   -- hs-source-dirs:      
   c-sources:           pugixml-1.4/pugixml.cpp cbit/wrapper.cc
   include-dirs:        pugixml-1.4, cbit
+  ghc-options:         -Wall
   extra-libraries:     stdc++
   default-language:    Haskell2010

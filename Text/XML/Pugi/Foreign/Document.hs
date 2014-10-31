@@ -15,15 +15,14 @@ import Data.Typeable
 import Data.IORef
 import Data.Default.Class
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Unsafe as S
 import qualified Data.ByteString.Lazy as L
 
 import Text.XML.Pugi.Foreign.Const
+import Text.XML.Pugi.Foreign.Types
 import System.IO.Unsafe
 
 -- Document
-
-newtype Document = Document (ForeignPtr Document) deriving Show
-
 foreign import ccall unsafe new_document :: IO (Ptr Document)
 foreign import ccall unsafe "&delete_document" p'delete_document
     :: FinalizerPtr Document
@@ -39,15 +38,6 @@ copyDocument (Document f) = withForeignPtr f $ \p -> do
     Document <$> newForeignPtr p'delete_document d
 
 -- Parsing
-data ParseException = ParseException
-    { parseExceptionStatus     :: ParseStatus
-    , parseExceptionOffset     :: CLong
-    , parseExceptionEncoding   :: Encoding
-    , parseExceptionDescripton :: String
-    } deriving (Show, Typeable)
-instance Exception ParseException
-
-newtype ParseResult = ParseResult (Ptr ParseResult) deriving Show
 foreign import ccall unsafe delete_parse_result      :: ParseResult -> IO ()
 foreign import ccall unsafe parse_is_success         :: ParseResult -> IO CInt
 foreign import ccall unsafe parse_result_status      :: ParseResult -> IO ParseStatus
@@ -55,8 +45,8 @@ foreign import ccall unsafe parse_result_offset      :: ParseResult -> IO CLong
 foreign import ccall unsafe parse_result_encoding    :: ParseResult -> IO Encoding
 foreign import ccall unsafe parse_result_description :: ParseResult -> IO CString
 
-foreign import ccall load_string :: Ptr Document -> CString -> ParseFlags -> Encoding -> IO ParseResult
-foreign import ccall load_file :: Ptr Document -> CString -> ParseFlags -> Encoding -> IO ParseResult
+foreign import ccall load_buffer :: Ptr Document -> Ptr a -> CSize -> ParseFlags -> Encoding -> IO ParseResult
+foreign import ccall load_file   :: Ptr Document -> CString -> ParseFlags -> Encoding -> IO ParseResult
 
 data ParseConfig = ParseConfig
     { parseFlags    :: ParseFlags
@@ -65,6 +55,15 @@ data ParseConfig = ParseConfig
 
 instance Default ParseConfig where
     def = ParseConfig parseFlagDefault encodingAuto
+
+data ParseException = ParseException
+    { parseExceptionStatus     :: ParseStatus
+    , parseExceptionOffset     :: CLong
+    , parseExceptionEncoding   :: Encoding
+    , parseExceptionDescripton :: String
+    } deriving (Show, Typeable)
+
+instance Exception ParseException
 
 parseCommon :: (ForeignPtr Document -> a) -> (ParseException -> IO a)
             -> Ptr Document -> ParseResult -> IO a
@@ -79,8 +78,8 @@ parseCommon con err doc res = do
             <*> (parse_result_description res >>= peekCString)
 
 parse :: ParseConfig -> S.ByteString -> Either ParseException Document
-parse (ParseConfig flags enc) str = unsafePerformIO $ S.useAsCString str $ \p -> new_document >>= \doc ->
-    bracket (load_string doc p flags enc) delete_parse_result $
+parse (ParseConfig flags enc) str = unsafePerformIO $ S.unsafeUseAsCStringLen str $ \(p,l) -> new_document >>= \doc ->
+    bracket (load_buffer doc p (fromIntegral l) flags enc) delete_parse_result $
         parseCommon (Right . Document) (return . Left) doc
 
 parseFile :: ParseConfig -> FilePath -> IO Document

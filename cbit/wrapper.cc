@@ -98,9 +98,8 @@ extern "C" {
     doc->reset(*proto);
   }
 
-  ParseResult* load_string(Document* doc, const char* str, unsigned int options, pugi::xml_encoding encoding) {
-    std::istringstream ist(str);
-    return new pugi::xml_parse_result(doc->load(ist, options, encoding));
+  ParseResult* load_buffer(Document* doc, const void* str, size_t size, unsigned int options, pugi::xml_encoding encoding) {
+    return new pugi::xml_parse_result(doc->load_buffer(str, size, options, encoding));
   }
 
   ParseResult* load_file(Document* doc, const char* path,
