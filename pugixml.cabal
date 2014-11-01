@@ -16,12 +16,16 @@ library
   exposed-modules:     Text.XML.Pugi.Foreign.Const
                        Text.XML.Pugi.Foreign.Node
                        Text.XML.Pugi.Foreign.Document
+                       Text.XML.Pugi.Foreign.XPath
+                       Text.XML.Pugi.Foreign.XPath.Node
                        Text.XML.Pugi.Foreign.Types
+                       Text.XML.Pugi.Foreign.Attr
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8
                      , bytestring
                      , data-default-class
+                     , template-haskell
   -- hs-source-dirs:      
   c-sources:           pugixml-1.4/pugixml.cpp cbit/wrapper.cc
   include-dirs:        pugixml-1.4, cbit

@@ -17,14 +17,10 @@ import qualified Data.ByteString as S
 
 import Text.XML.Pugi.Foreign.Const
 import Text.XML.Pugi.Foreign.Types
-
--- attr
-foreign import ccall unsafe delete_attr :: Ptr Attr -> IO ()
-foreign import ccall unsafe attr_name   :: Ptr Attr -> IO CString
-foreign import ccall unsafe attr_value  :: Ptr Attr -> IO CString
+import Text.XML.Pugi.Foreign.Attr
 
 -- node
-foreign import ccall unsafe "&delete_node" p'delete_node
+foreign import ccall unsafe "&delete_node" finalizerNode
     :: FinalizerPtr Node
 
 foreign import ccall unsafe node_hash_value :: Ptr n -> IO CSize
@@ -65,18 +61,15 @@ foreign import ccall unsafe node_first_element_by_path :: Ptr n -> CString -> CC
 
 foreign import ccall unsafe node_root :: Ptr a -> IO (Ptr Node)
 
-withNode :: NodeLike n => n -> (Ptr n -> IO a) -> IO a
-withNode n = withForeignPtr (foreignPtr n)
-
 nodeCommon :: NodeLike n => n -> (Ptr n -> IO (Ptr Node)) -> IO (Maybe Node)
 nodeCommon n f = withNode n $ \p -> do
     q <- f p
     if q == nullPtr
     then return Nothing
-    else Just . Node <$> newForeignPtr p'delete_node q
+    else Just . Node <$> newForeignPtr finalizerNode q
 
 class NodeLike n where
-    foreignPtr :: n -> ForeignPtr n
+    withNode :: n -> (Ptr n -> IO a) -> IO a
 
     hashValue :: n -> IO CSize
     hashValue n = withNode n node_hash_value
@@ -147,8 +140,8 @@ class NodeLike n where
     mapAttrsM_ :: (S.ByteString -> S.ByteString -> IO ()) -> n -> IO ()
     mapAttrsM_ func n = withNode n $ \p -> do
         let f a = do
-                nm  <- attr_name  a >>= S.packCString
-                val <- attr_value a >>= S.packCString
+                nm  <- attrName a
+                val <- attrValue a
                 func nm val
         bracket (wrap_attr_mapper f) freeHaskellFunPtr $ node_map_attributes p
 
@@ -176,6 +169,5 @@ mapAttrsM func n = do
     mapAttrsM_ (\k v -> func k v >>= \a -> modifyIORef ref (\f -> f . (a:))) n
     readIORef ref >>= \a -> return (a [])
 
-instance NodeLike Document where foreignPtr (Document f) = f
-instance NodeLike Node     where foreignPtr (Node     f) = f
-
+instance NodeLike Document where withNode (Document f) = withForeignPtr f
+instance NodeLike Node     where withNode (Node     f) = withForeignPtr f

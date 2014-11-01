@@ -4,13 +4,17 @@
 #include <sstream>
 
 extern "C" {
-  typedef pugi::xml_document     Document;
-  typedef pugi::xml_node         Node;
-  typedef pugi::xml_attribute    Attr;
-  typedef pugi::xml_parse_result ParseResult;
+  typedef pugi::xml_document       Document;
+  typedef pugi::xml_node           Node;
+  typedef pugi::xml_attribute      Attr;
+  typedef pugi::xml_parse_result   ParseResult;
+  typedef pugi::xpath_query        XPath;
+  typedef pugi::xpath_node         XPathNode;
+  typedef pugi::xpath_node_set     NodeSet;
 
-  inline Node* checkNewNode(Node n) { if (n) {return new Node(n);} else {return NULL;} }
-  inline Attr* checkNewAttr(Attr a) { if (a) {return new Attr(a);} else {return NULL;} }
+  inline Node* checkNewNode(const Node n) { if (n) {return new Node(n);} else {return NULL;} }
+  inline Attr* checkNewAttr(const Attr a) { if (a) {return new Attr(a);} else {return NULL;} }
+  inline XPathNode* checkNewXPathNode(const XPathNode n) { if (n) {return new XPathNode(n);} else {return NULL;} }
 
   int pugixml_version () { return PUGIXML_VERSION; }
 
@@ -92,13 +96,14 @@ extern "C" {
 
   ////// methods of document
   Document* new_document() { return new pugi::xml_document(); }
-  void delete_document(Document* doc) { delete doc; }
+  void delete_document(const Document* doc) { delete doc; }
 
   void reset_document_with(Document* doc, const Document* proto){
     doc->reset(*proto);
   }
 
-  ParseResult* load_buffer(Document* doc, const void* str, size_t size, unsigned int options, pugi::xml_encoding encoding) {
+  ParseResult* load_buffer(Document* doc, const void* str, size_t size,
+      unsigned int options, pugi::xml_encoding encoding) {
     return new pugi::xml_parse_result(doc->load_buffer(str, size, options, encoding));
   }
 
@@ -107,7 +112,7 @@ extern "C" {
     return new pugi::xml_parse_result(doc->load_file(path, options, encoding));
   }
 
-  int save_file(Document* doc, const char* path, const char* indent, 
+  int save_file(const Document* doc, const char* path, const char* indent, 
       unsigned int flags, pugi::xml_encoding encoding) {
     return doc->save_file(path, indent, flags, encoding);
   }
@@ -120,80 +125,127 @@ extern "C" {
     }
   };
 
-  void save_string(Document* doc, void (*func)(const char*, size_t), const char* indent, 
-      unsigned int flags, pugi::xml_encoding encoding) {
+  void save_string(const Document* doc, void (*func)(const char*, size_t),
+      const char* indent, unsigned int flags, pugi::xml_encoding encoding) {
     wrap_writer wtr;
     wtr.func = func;
     doc->save(wtr, indent, flags, encoding);
   }
 
   ////// methods of xml_parse_result
-  void delete_parse_result(ParseResult* r) { delete r; }
-  int  parse_is_success(ParseResult* r) { return r ? true : false; }
-  int  parse_result_status(ParseResult* r) { return r->status; }
-  long parse_result_offset(ParseResult* r) { return r->offset; }
-  pugi::xml_encoding parse_result_encoding(ParseResult* r) { return r->encoding; }
-  const char* parse_result_description(ParseResult* r) { return r->description(); }
+  void delete_parse_result(const ParseResult* r) { delete r; }
+  int  parse_is_success(const ParseResult* r) { return *r ? true : false; }
+  int  parse_result_status(const ParseResult* r) { return r->status; }
+  long parse_result_offset(const ParseResult* r) { return r->offset; }
+  pugi::xml_encoding parse_result_encoding(const ParseResult* r) { return r->encoding; }
+  const char* parse_result_description(const ParseResult* r) { return r->description(); }
 
   ////// methods of xml_attribute
-  void delete_attr(Attr* a) { delete a; }
-  size_t attr_hash_value(Attr* a) { return a->hash_value(); }
+  void delete_attr(const Attr* a) { delete a; }
+  size_t attr_hash_value(const Attr* a) { return a->hash_value(); }
 
-  const char* attr_name(Attr* a) { return a->name(); }
-  const char* attr_value(Attr* a) { return a->value(); }
+  const char* attr_name(const Attr* a) { return a->name(); }
+  const char* attr_value(const Attr* a) { return a->value(); }
 
 
   ////// methods of node
-  void delete_node(Node* n) { delete n; }
+  void delete_node(const Node* n) { delete n; }
 
-  size_t node_hash_value(void* n) { return static_cast<Node*>(n)->hash_value(); }
+  size_t node_hash_value(const void* n) { return static_cast<const Node*>(n)->hash_value(); }
 
-  int node_type(void* n) { return static_cast<Node*>(n)->type(); }
+  int node_type(const void* n) { return static_cast<const Node*>(n)->type(); }
 
-  const char* node_name(void* n)  { return static_cast<Node*>(n)->name(); }
-  const char* node_value(void* n) { return static_cast<Node*>(n)->value(); }
+  const char* node_name(const void* n)  { return static_cast<const Node*>(n)->name(); }
+  const char* node_value(const void* n) { return static_cast<const Node*>(n)->value(); }
 
-  Node* node_parent(void* n) { return checkNewNode(static_cast<Node*>(n)->parent()); }
-  Node* node_first_child(void* n) { return checkNewNode(static_cast<Node*>(n)->first_child()); }
-  Node* node_last_child(void* n) { return checkNewNode(static_cast<Node*>(n)->last_child()); }
-  Node* node_next_sibling(void* n) { return checkNewNode(static_cast<Node*>(n)->next_sibling()); }
-  Node* node_previous_sibling(void* n) { return checkNewNode(static_cast<Node*>(n)->previous_sibling()); }
+  Node* node_parent(const void* n) { return checkNewNode(static_cast<const Node*>(n)->parent()); }
+  Node* node_first_child(const void* n) { return checkNewNode(static_cast<const Node*>(n)->first_child()); }
+  Node* node_last_child(const void* n) { return checkNewNode(static_cast<const Node*>(n)->last_child()); }
+  Node* node_next_sibling(const void* n) { return checkNewNode(static_cast<const Node*>(n)->next_sibling()); }
+  Node* node_previous_sibling(const void* n) { return checkNewNode(static_cast<const Node*>(n)->previous_sibling()); }
 
-  Node* node_child(void* n, const char* name) { return checkNewNode(static_cast<Node*>(n)->child(name)); }
-  Attr* node_attribute(void* n, const char* name) { return checkNewAttr(static_cast<Node*>(n)->attribute(name)); }
-  Node* node_next_sibling_by_name(void* n, const char* name) { return checkNewNode(static_cast<Node*>(n)->next_sibling(name)); }
-  Node* node_previous_sibling_by_name(void* n, const char* name) { return checkNewNode(static_cast<Node*>(n)->previous_sibling(name)); }
-  Node* node_find_child_by_name_and_attribute(void* n, const char* name, const char* attr_name, const char* attr_value) { return checkNewNode(static_cast<Node*>(n)->find_child_by_attribute(name, attr_name, attr_value)); }
-  Node* node_find_child_by_attribute(void* n, const char* attr_name, const char* attr_value) { return checkNewNode(static_cast<Node*>(n)->find_child_by_attribute(attr_name, attr_value)); }
+  Node* node_child(const void* n, const char* name) { return checkNewNode(static_cast<const Node*>(n)->child(name)); }
+  Attr* node_attribute(const void* n, const char* name) { return checkNewAttr(static_cast<const Node*>(n)->attribute(name)); }
+  Node* node_next_sibling_by_name(const void* n, const char* name) { return checkNewNode(static_cast<const Node*>(n)->next_sibling(name)); }
+  Node* node_previous_sibling_by_name(const void* n, const char* name) { return checkNewNode(static_cast<const Node*>(n)->previous_sibling(name)); }
+  Node* node_find_child_by_name_and_attribute(const void* n, const char* name, const char* attr_name, const char* attr_value) { return checkNewNode(static_cast<const Node*>(n)->find_child_by_attribute(name, attr_name, attr_value)); }
+  Node* node_find_child_by_attribute(const void* n, const char* attr_name, const char* attr_value) { return checkNewNode(static_cast<const Node*>(n)->find_child_by_attribute(attr_name, attr_value)); }
 
-  const char* node_child_value(void* n) { return static_cast<Node*>(n)->child_value(); }
-  const char* node_child_value_by_name(void* n, const char* name) { return static_cast<Node*>(n)->child_value(name); }
-  const char* node_text(void* n) { return static_cast<Node*>(n)->text().get(); }
+  const char* node_child_value(const void* n) { return static_cast<const Node*>(n)->child_value(); }
+  const char* node_child_value_by_name(const void* n, const char* name) { return static_cast<const Node*>(n)->child_value(name); }
+  const char* node_text(const void* n) { return static_cast<const Node*>(n)->text().get(); }
 
-  void node_map_sibling (void* node, void (*fun)(Node*)) {
-    Node* n = static_cast<Node*>(node);
+  void node_map_sibling (const void* node, void (*fun)(Node*)) {
+    const Node* n = static_cast<const Node*>(node);
     for(pugi::xml_node_iterator it = n->begin(); it != n->end(); ++it) {
-      fun(&(*it));
+      fun(&*it);
     }
   }
-  void node_map_attributes (void* node, void (*fun)(Attr*)) {
-    Node* n = static_cast<Node*>(node);
+  void node_map_attributes (const void* node, void (*fun)(Attr*)) {
+    const Node* n = static_cast<const Node*>(node);
     for(pugi::xml_attribute_iterator it = n->attributes_begin(); it != n->attributes_end(); ++it) {
-      fun(&(*it));
+      fun(&*it);
     }
   }
 
-  char* node_path(void* node, const char del) { 
-    std::string s = static_cast<Node*>(node)->path(del);
+  char* node_path(const void* node, const char del) { 
+    std::string s = static_cast<const Node*>(node)->path(del);
     char* ret = (char*)malloc(s.length() + 1);
     std::strcpy(ret, s.c_str());
     return ret;
   }
 
-  Node* node_first_element_by_path(void* node, const char* path, const char del) {
-    return checkNewNode(static_cast<Node*>(node)->first_element_by_path(path, del));
+  Node* node_first_element_by_path(const void* node, const char* path, char del) {
+    return checkNewNode(static_cast<const Node*>(node)->first_element_by_path(path, del));
   }
 
-  Node* node_root(void* n) {return checkNewNode(static_cast<Node*>(n)->root()); }
+  Node* node_root(const void* n) {return checkNewNode(static_cast<const Node*>(n)->root()); }
+
+  ////// methods of xpath_node
+  void delete_xpath_node(const XPathNode* p) { delete p; }
+  Node* xpath_node_node(const XPathNode* p) { return checkNewNode(p->node()); }
+  Attr* xpath_node_attribute(const XPathNode* p) { return checkNewAttr(p->attribute()); }
+
+  ////// methods of xpath_node_set
+  void delete_xpath_node_set(const NodeSet* p) { delete p; }
+  size_t xpath_node_set_size  (const NodeSet* p) { return p->size(); }
+  int    xpath_node_set_empty (const NodeSet* p) { return p->empty(); }
+  XPathNode*  xpath_node_set_index (const NodeSet* p, size_t i) { 
+    return checkNewXPathNode((*p)[i]);
+  }
+  void xpath_node_set_map(const NodeSet* p, void (*func)(const XPathNode*)) {
+    for(pugi::xpath_node_set::const_iterator it = p->begin(); it != p->end(); ++it) {
+      func(&*it);
+    }
+  }
+
+  ////// methods of xpath_query
+  void delete_xpath_query(const XPath* p) { delete p; }
+  XPath* new_xpath_query_no_variable(const char* query) { return new pugi::xpath_query(query); }
+
+  int xpath_query_evaluate_boolean(const XPath* p, const void* n) {
+    XPathNode xn(*static_cast<const Node*>(n));
+    return p->evaluate_boolean(xn); 
+  }
+  double xpath_query_evaluate_number(const XPath* p, const void* n) {
+    XPathNode xn(*static_cast<const Node*>(n));
+    return p->evaluate_number(xn);
+  }
+
+  char* xpath_query_evaluate_string(const XPath* p, const void* n) {
+    XPathNode xn(*static_cast<const Node*>(n));
+    std::string s = p->evaluate_string(xn);
+    char* ret = (char*)malloc(s.length() + 1);
+    std::strcpy(ret, s.c_str());
+    return ret;
+  }
+
+  NodeSet* xpath_query_evaluate_node_set(const XPath* p, const void* n) {
+    XPathNode xn(*static_cast<const Node*>(n));
+    return new NodeSet(p->evaluate_node_set(xn));
+  }
+
+  pugi::xpath_value_type xpath_query_return_type(const XPath* p) { return p->return_type(); }
+  int xpath_query_parse_is_success(const XPath* p) { return static_cast<bool>(*p); }
 
 }

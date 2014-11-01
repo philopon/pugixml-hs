@@ -24,18 +24,18 @@ import System.IO.Unsafe
 
 -- Document
 foreign import ccall unsafe new_document :: IO (Ptr Document)
-foreign import ccall unsafe "&delete_document" p'delete_document
+foreign import ccall unsafe "&delete_document" finalizerDocument
     :: FinalizerPtr Document
 foreign import ccall unsafe reset_document_with :: Ptr Document -> Ptr Document -> IO ()
 
 createDocument :: IO Document
-createDocument = fmap Document $ newForeignPtr p'delete_document =<< new_document
+createDocument = fmap Document $ newForeignPtr finalizerDocument =<< new_document
 
 copyDocument :: Document -> IO Document
 copyDocument (Document f) = withForeignPtr f $ \p -> do
     d <- new_document
     reset_document_with d p
-    Document <$> newForeignPtr p'delete_document d
+    Document <$> newForeignPtr finalizerDocument d
 
 -- Parsing
 foreign import ccall unsafe delete_parse_result      :: ParseResult -> IO ()
@@ -54,7 +54,7 @@ data ParseConfig = ParseConfig
     } deriving Show
 
 instance Default ParseConfig where
-    def = ParseConfig parseFlagDefault encodingAuto
+    def = ParseConfig def def
 
 data ParseException = ParseException
     { parseExceptionStatus     :: ParseStatus
@@ -70,7 +70,7 @@ parseCommon :: (ForeignPtr Document -> a) -> (ParseException -> IO a)
 parseCommon con err doc res = do
     ok <- parse_is_success res
     if toBool ok
-        then con <$> newForeignPtr p'delete_document doc
+        then con <$> newForeignPtr finalizerDocument doc
         else err =<< ParseException
             <$> parse_result_status res
             <*> parse_result_offset res
@@ -101,7 +101,7 @@ data PrettyConfig = PrettyConfig
     } deriving Show
 
 instance Default PrettyConfig where
-    def = PrettyConfig "\t" formatFlagDefault encodingAuto
+    def = PrettyConfig "\t" def def
 
 prettyFile :: PrettyConfig -> FilePath -> Document -> IO ()
 prettyFile (PrettyConfig indent flags enc) path (Document doc) =
