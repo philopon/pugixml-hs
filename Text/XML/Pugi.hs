@@ -1,4 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 module Text.XML.Pugi
     ( -- * Document
@@ -50,6 +52,7 @@ module Text.XML.Pugi
     ) where
 
 import Control.Applicative
+import Control.Monad
 
 import Foreign.C.Types
 
@@ -151,55 +154,84 @@ firstElementByPath c p = unsafePerformIO . N.firstElementByPath c p
 root :: N.NodeLike n => n m -> Maybe (Node_ m)
 root = unsafePerformIO . N.root
 
-newtype Modify a = Modify { unModify :: IO a }
-    deriving (Functor, Applicative, Monad)
+newtype Modify a = Modify { runModify :: IO (Either String a) }
+    deriving Functor
 
-create :: (MutableDocument -> Modify ()) -> Document
-create m = D.freezeDocument . unsafePerformIO . unModify $ do
-    d <- Modify D.createDocument
+instance Applicative Modify where
+    pure      = Modify . return . Right
+    mf <*> ma = Modify $ runModify mf >>= \case
+        Left  e -> return (Left e)
+        Right f -> runModify ma >>= \case
+            Left  e -> return (Left e)
+            Right a -> return (Right (f a))
+
+instance Monad Modify where
+    return = pure
+    ma >>= g = Modify $ runModify ma >>= \case
+        Left  e -> return (Left e)
+        Right a -> runModify $ g a
+    fail = Modify . return . Left
+
+mLiftIO :: IO a -> Modify a
+mLiftIO io = Modify $ Right <$> io
+
+create :: Monad m => (MutableDocument -> Modify ()) -> m Document
+create m = either fail (return . D.freezeDocument) . unsafePerformIO . runModify $ do
+    d <- mLiftIO D.createDocument
     m d
     return d
 
-modify :: Document -> (MutableDocument -> Modify ()) -> Document
-modify prt m = D.freezeDocument . unsafePerformIO . unModify $ do
-    d <- Modify $ D.copyDocument prt
+modify :: Monad m => Document -> (MutableDocument -> Modify ()) -> m Document
+modify prt m = either fail (return . D.freezeDocument) . unsafePerformIO . runModify $ do
+    d <- mLiftIO $ D.copyDocument prt
     m d
     return d
 
-setName :: N.NodeLike n => S.ByteString -> n Mutable -> Modify Bool
-setName n = Modify . N.setName n
+setName :: N.NodeLike n => S.ByteString -> n Mutable -> Modify ()
+setName n nd = mLiftIO (N.setName n nd) >>= 
+    flip unless (fail $ "setName: " ++ show n)
 
-setValue :: N.NodeLike n => S.ByteString -> n Mutable -> Modify Bool
-setValue n = Modify . N.setValue n
+setValue :: N.NodeLike n => S.ByteString -> n Mutable -> Modify ()
+setValue n nd = mLiftIO (N.setValue n nd) >>=
+    flip unless (fail $ "setValue: " ++ show n)
 
 appendAttr :: N.NodeLike n => S.ByteString -> S.ByteString
-           -> n Mutable -> Modify Bool
-appendAttr k v = Modify . N.appendAttr k v
+           -> n Mutable -> Modify ()
+appendAttr k v n = mLiftIO (N.appendAttr k v n) >>=
+    flip unless (fail $ "appendAttr: " ++ show k ++ " = " ++ show v)
 
 prependAttr :: N.NodeLike n => S.ByteString -> S.ByteString
-            -> n Mutable -> Modify Bool
-prependAttr k v = Modify . N.prependAttr k v
+            -> n Mutable -> Modify ()
+prependAttr k v n = mLiftIO (N.prependAttr k v n) >>=
+    flip unless (fail $ "appendAttr: " ++ show k ++ " = " ++ show v)
 
-appendChild :: N.NodeLike n => NodeType -> n Mutable -> Modify (Maybe MutableNode)
-appendChild t = Modify . N.appendChild t
+appendChild :: N.NodeLike n => NodeType -> n Mutable -> Modify MutableNode
+appendChild t n = mLiftIO (N.appendChild t n) >>=
+    maybe (fail $ "appendChild: " ++ show t) return
 
-prependChild :: N.NodeLike n => NodeType -> n Mutable -> Modify (Maybe MutableNode)
-prependChild t = Modify . N.prependChild t
+prependChild :: N.NodeLike n => NodeType -> n Mutable -> Modify MutableNode
+prependChild t n = mLiftIO (N.prependChild t n) >>=
+    maybe (fail $ "prependChild: " ++ show t) return
 
-appendCopy :: N.NodeLike n => Node_ a -> n Mutable -> Modify (Maybe MutableNode)
-appendCopy t = Modify . N.appendCopy t
+appendCopy :: N.NodeLike n => Node_ a -> n Mutable -> Modify MutableNode
+appendCopy t n = mLiftIO (N.appendCopy t n) >>=
+    maybe (fail "appendCopy") return
 
-prependCopy :: N.NodeLike n => Node_ a -> n Mutable -> Modify (Maybe MutableNode)
-prependCopy t = Modify . N.prependCopy t
+prependCopy :: N.NodeLike n => Node_ a -> n Mutable -> Modify MutableNode
+prependCopy t n = mLiftIO (N.prependCopy t n) >>=
+    maybe (fail "prependCopy") return
 
-removeAttr :: N.NodeLike n => S.ByteString -> n Mutable -> Modify Bool
-removeAttr n = Modify . N.removeAttr n
+removeAttr :: N.NodeLike n => S.ByteString -> n Mutable -> Modify ()
+removeAttr n nd = mLiftIO (N.removeAttr n nd) >>=
+    flip unless (fail $ "removeAttr: " ++ show n)
 
-removeChild :: N.NodeLike n => Node_ a -> n Mutable -> Modify Bool
-removeChild n = Modify . N.removeChild n
+removeChild :: N.NodeLike n => Node_ a -> n Mutable -> Modify ()
+removeChild n nd = mLiftIO (N.removeChild n nd) >>=
+    flip unless (fail "removeChild")
 
-appendParse :: N.NodeLike n => D.ParseConfig -> S.ByteString -> n Mutable -> Modify Bool
-appendParse cfg str = Modify . N.appendBuffer cfg str
+appendParse :: N.NodeLike n => D.ParseConfig -> S.ByteString -> n Mutable -> Modify ()
+appendParse cfg str n = mLiftIO (N.appendBuffer cfg str n) >>=
+    flip unless (fail $ "appendParse: " ++ show str)
 
 selectSingleNode :: N.NodeLike n => XPath NodeSet -> n m -> XPathNode
 selectSingleNode x = unsafePerformIO . N.selectSingleNode x
