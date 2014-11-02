@@ -20,7 +20,6 @@ import qualified Data.ByteString.Lazy as L
 
 import Text.XML.Pugi.Foreign.Const
 import Text.XML.Pugi.Foreign.Types
-import System.IO.Unsafe
 import Unsafe.Coerce
 
 -- Document
@@ -82,8 +81,8 @@ parseCommon con err doc res = do
             <*> parse_result_encoding res
             <*> (parse_result_description res >>= peekCString)
 
-parse :: ParseConfig -> S.ByteString -> Either ParseException Document
-parse (ParseConfig flags enc) str = unsafePerformIO $ S.unsafeUseAsCStringLen str $ \(p,l) -> new_document >>= \doc ->
+parse :: ParseConfig -> S.ByteString -> IO (Either ParseException Document)
+parse (ParseConfig flags enc) str = S.unsafeUseAsCStringLen str $ \(p,l) -> new_document >>= \doc ->
     bracket (load_buffer doc p (fromIntegral l) flags enc) delete_parse_result $
         parseCommon (Right . freezeDocument . Document) (return . Left) doc
 

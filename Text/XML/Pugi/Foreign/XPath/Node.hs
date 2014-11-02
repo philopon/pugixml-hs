@@ -12,6 +12,8 @@ import Foreign.Marshal
 import Text.XML.Pugi.Foreign.Types
 import Text.XML.Pugi.Foreign.Node
 
+import Data.IORef
+
 foreign import ccall unsafe xpath_node_set_empty :: Ptr NodeSet -> IO CInt
 foreign import ccall unsafe xpath_node_set_index :: Ptr NodeSet -> CSize -> IO (Ptr XNode)
 
@@ -37,3 +39,9 @@ nodeSetMapM_ f (NodeSet _ fp) = withForeignPtr fp $ \p -> do
     let func x = peekXNode x >>= f
     bracket (wrap_xpath_node_mapper func) freeHaskellFunPtr $ \fn ->
         xpath_node_set_map p fn
+
+nodeSetMapM :: (XPathNode -> IO a) -> NodeSet -> IO [a]
+nodeSetMapM f n = do
+    ref <- newIORef id
+    nodeSetMapM_ (\x -> f x >>= \a -> modifyIORef ref (\rf -> rf . (a:))) n
+    readIORef ref >>= \l -> return (l [])

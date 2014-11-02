@@ -69,8 +69,8 @@ foreign import ccall unsafe node_first_element_by_path :: Ptr n -> CString -> CC
 
 foreign import ccall unsafe node_root :: Ptr n -> IO (Ptr (Node_ a))
 
-foreign import ccall unsafe set_name  :: Ptr n -> IO CInt
-foreign import ccall unsafe set_value :: Ptr n -> IO CInt
+foreign import ccall unsafe set_name  :: Ptr n -> CString -> IO CInt
+foreign import ccall unsafe set_value :: Ptr n -> CString -> IO CInt
 
 foreign import ccall unsafe append_attribute  :: Ptr n -> CString -> CString -> IO CInt
 foreign import ccall unsafe prepend_attribute :: Ptr n -> CString -> CString -> IO CInt
@@ -186,48 +186,51 @@ class NodeLike (n :: MutableFlag -> *) where
     root :: n m -> IO (Maybe (Node_ m))
     root node = nodeCommon node $ node_root
 
-    setName :: n Mutable -> IO Bool
-    setName node = toBool <$> withNode node set_name
-    setValue :: n Mutable -> IO Bool
-    setValue node = toBool <$> withNode node set_value
+    setName :: S.ByteString -> n Mutable -> IO Bool
+    setName n node = withNode node $ \p -> S.useAsCString n $ \q ->
+        toBool <$> set_name p q
+    setValue :: S.ByteString -> n Mutable -> IO Bool
+    setValue n node = withNode node $ \p -> S.useAsCString n $ \q ->
+        toBool <$> set_value p q
 
-    appendAttr :: n Mutable -> S.ByteString -> S.ByteString -> IO Bool
-    appendAttr n k v = withNode n $ \np -> S.useAsCString k $ \kp -> S.useAsCString v $ \vp ->
+    appendAttr :: S.ByteString -> S.ByteString -> n Mutable -> IO Bool
+    appendAttr k v n = withNode n $ \np -> S.useAsCString k $ \kp -> S.useAsCString v $ \vp ->
         toBool <$> append_attribute np kp vp
-    prependAttr :: n Mutable -> S.ByteString -> S.ByteString -> IO Bool
-    prependAttr n k v = withNode n $ \np -> S.useAsCString k $ \kp -> S.useAsCString v $ \vp ->
+    prependAttr :: S.ByteString -> S.ByteString -> n Mutable -> IO Bool
+    prependAttr k v n = withNode n $ \np -> S.useAsCString k $ \kp -> S.useAsCString v $ \vp ->
         toBool <$> prepend_attribute np kp vp
 
-    appendChild :: n Mutable -> NodeType -> IO (Maybe MutableNode)
-    appendChild n t = nodeCommon n $ \p -> append_child p t
-    prependChild :: n Mutable -> NodeType -> IO (Maybe MutableNode)
-    prependChild n t = nodeCommon n $ \p -> prepend_child p t
+    appendChild :: NodeType -> n Mutable -> IO (Maybe MutableNode)
+    appendChild t n = nodeCommon n $ \p -> append_child p t
+    prependChild :: NodeType -> n Mutable -> IO (Maybe MutableNode)
+    prependChild t n = nodeCommon n $ \p -> prepend_child p t
 
-    appendCopy :: n Mutable -> Node_ a -> IO (Maybe MutableNode)
-    appendCopy n t = nodeCommon n $ \p -> withNode t (append_copy p)
-    prependCopy :: n Mutable -> Node_ a -> IO (Maybe MutableNode)
-    prependCopy n t = nodeCommon n $ \p -> withNode t (prepend_copy p)
+    appendCopy :: Node_ a -> n Mutable -> IO (Maybe MutableNode)
+    appendCopy t n = nodeCommon n $ \p -> withNode t (append_copy p)
+    prependCopy :: Node_ a -> n Mutable -> IO (Maybe MutableNode)
+    prependCopy t n = nodeCommon n $ \p -> withNode t (prepend_copy p)
 
-    removeAttr :: n Mutable -> S.ByteString -> IO Bool
-    removeAttr n a = withNode n $ \p -> S.useAsCString a $ \c ->
+    removeAttr :: S.ByteString -> n Mutable -> IO Bool
+    removeAttr a n = withNode n $ \p -> S.useAsCString a $ \c ->
         toBool <$> remove_attribute p c
 
-    removeChild :: n Mutable -> Node_ a -> IO Bool
-    removeChild n c = withNode n $ \p -> withNode c $ \q ->
+    removeChild :: Node_ a -> n Mutable -> IO Bool
+    removeChild c n = withNode n $ \p -> withNode c $ \q ->
         toBool <$> remove_child p q
 
-    appendBuffer :: ParseConfig -> n Mutable -> S.ByteString -> IO Bool
-    appendBuffer (ParseConfig (ParseFlags flags) enc) node str = fmap toBool $
+    appendBuffer :: ParseConfig -> S.ByteString -> n Mutable -> IO Bool
+    appendBuffer (ParseConfig (ParseFlags flags) enc) str node = fmap toBool $
         withNode node $ \n -> S.unsafeUseAsCStringLen str $ \(c,l) ->
-        append_buffer n c (fromIntegral l) flags enc >>= parse_is_success
+        bracket (append_buffer n c (fromIntegral l) flags enc) delete_parse_result
+        parse_is_success
 
-    selectSingleNode :: n m -> XPath NodeSet -> IO XPathNode
-    selectSingleNode nd (XPath xp) =
+    selectSingleNode :: XPath NodeSet -> n m -> IO XPathNode
+    selectSingleNode (XPath xp) nd =
         withNode nd $ \n -> withForeignPtr xp $ \x -> do
             select_single_node n x >>= peekXNode
 
-    selectNodes :: n m -> XPath NodeSet -> IO NodeSet
-    selectNodes nd (XPath xp) = withNode nd $ \n -> withForeignPtr xp $ \x -> do
+    selectNodes :: XPath NodeSet -> n m -> IO NodeSet
+    selectNodes (XPath xp) nd = withNode nd $ \n -> withForeignPtr xp $ \x -> do
         p <- select_nodes n x
         l <- fromIntegral <$> xpath_node_set_size p
         NodeSet l <$> newForeignPtr finalizerXpathNodeSet p
