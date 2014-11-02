@@ -21,17 +21,22 @@ import qualified Data.ByteString.Lazy as L
 import Text.XML.Pugi.Foreign.Const
 import Text.XML.Pugi.Foreign.Types
 import System.IO.Unsafe
+import Unsafe.Coerce
 
 -- Document
-foreign import ccall unsafe new_document :: IO (Ptr Document)
+foreign import ccall unsafe new_document :: IO (Ptr MutableDocument)
 foreign import ccall unsafe "&delete_document" finalizerDocument
-    :: FinalizerPtr Document
-foreign import ccall unsafe reset_document_with :: Ptr Document -> Ptr Document -> IO ()
+    :: FinalizerPtr (Document_ a)
+foreign import ccall unsafe reset_document_with :: Ptr MutableDocument -> Ptr (Document_ a) -> IO ()
 
-createDocument :: IO Document
+freezeDocument :: Document_ a -> Document
+freezeDocument = unsafeCoerce
+{-# INLINE freezeDocument #-}
+
+createDocument :: IO MutableDocument
 createDocument = fmap Document $ newForeignPtr finalizerDocument =<< new_document
 
-copyDocument :: Document -> IO Document
+copyDocument :: Document_ a -> IO MutableDocument
 copyDocument (Document f) = withForeignPtr f $ \p -> do
     d <- new_document
     reset_document_with d p
@@ -45,8 +50,8 @@ foreign import ccall unsafe parse_result_offset      :: ParseResult -> IO CLong
 foreign import ccall unsafe parse_result_encoding    :: ParseResult -> IO Encoding
 foreign import ccall unsafe parse_result_description :: ParseResult -> IO CString
 
-foreign import ccall load_buffer :: Ptr Document -> Ptr a -> CSize -> ParseFlags -> Encoding -> IO ParseResult
-foreign import ccall load_file   :: Ptr Document -> CString -> ParseFlags -> Encoding -> IO ParseResult
+foreign import ccall load_buffer :: Ptr MutableDocument -> Ptr a -> CSize -> ParseFlags -> Encoding -> IO ParseResult
+foreign import ccall load_file   :: Ptr MutableDocument -> CString -> ParseFlags -> Encoding -> IO ParseResult
 
 data ParseConfig = ParseConfig
     { parseFlags    :: ParseFlags
@@ -65,8 +70,8 @@ data ParseException = ParseException
 
 instance Exception ParseException
 
-parseCommon :: (ForeignPtr Document -> a) -> (ParseException -> IO a)
-            -> Ptr Document -> ParseResult -> IO a
+parseCommon :: (ForeignPtr MutableDocument -> a) -> (ParseException -> IO a)
+            -> Ptr MutableDocument -> ParseResult -> IO a
 parseCommon con err doc res = do
     ok <- parse_is_success res
     if toBool ok
@@ -80,12 +85,12 @@ parseCommon con err doc res = do
 parse :: ParseConfig -> S.ByteString -> Either ParseException Document
 parse (ParseConfig flags enc) str = unsafePerformIO $ S.unsafeUseAsCStringLen str $ \(p,l) -> new_document >>= \doc ->
     bracket (load_buffer doc p (fromIntegral l) flags enc) delete_parse_result $
-        parseCommon (Right . Document) (return . Left) doc
+        parseCommon (Right . freezeDocument . Document) (return . Left) doc
 
 parseFile :: ParseConfig -> FilePath -> IO Document
 parseFile (ParseConfig flags enc) path = withCString path $ \p -> new_document >>= \doc ->
     bracket (load_file doc p flags enc) delete_parse_result $
-        parseCommon Document throwIO doc
+        parseCommon (freezeDocument . Document) throwIO doc
 
 -- format
 foreign import ccall save_file :: Ptr Document -> CString -> CString -> FormatFlags -> Encoding -> IO CInt

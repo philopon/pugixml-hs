@@ -21,7 +21,6 @@ import System.IO.Unsafe
 import Text.XML.Pugi.Foreign.Types
 import Text.XML.Pugi.Foreign.Const
 import Text.XML.Pugi.Foreign.Node
-import Text.XML.Pugi.Foreign.XPath.Node
 
 foreign import ccall unsafe delete_xpath_query :: Ptr (XPath a) -> IO ()
 foreign import ccall unsafe "&delete_xpath_query" finalizerXpathQuery :: FinalizerPtr (XPath a)
@@ -67,7 +66,7 @@ xpath = QuasiQuoter
     }
 
 class EvalXPath a where
-    evaluateXPath :: NodeLike n => XPath a -> n -> IO a
+    evaluateXPath :: NodeLike n => XPath a -> n m -> IO a
 
 instance EvalXPath Bool where
     evaluateXPath (XPath xp) nd = withForeignPtr xp $ \x -> withNode nd $ \n ->

@@ -11,27 +11,7 @@ import Foreign.Marshal
 
 import Text.XML.Pugi.Foreign.Types
 import Text.XML.Pugi.Foreign.Node
-import Text.XML.Pugi.Foreign.Attr
 
--- xpath_node
-foreign import ccall unsafe delete_xpath_node :: Ptr XNode -> IO ()
-foreign import ccall unsafe xpath_node_node :: Ptr XNode -> IO (Ptr Node)
-foreign import ccall unsafe xpath_node_attribute :: Ptr XNode -> IO (Ptr Attr)
-
-peekXNode :: Ptr XNode -> IO XPathNode
-peekXNode p = do
-    n <- xpath_node_node p
-    if n == nullPtr
-        then bracket (xpath_node_attribute p) delete_attr $ \a -> do
-            an <- attrName a
-            av <- attrValue a
-            return $ Right (an, av)
-        else Left . Node <$> newForeignPtr finalizerNode n
-
-
-foreign import ccall unsafe "&delete_xpath_node_set" finalizerXpathNodeSet :: FinalizerPtr NodeSet
-
-foreign import ccall unsafe xpath_node_set_size :: Ptr NodeSet -> IO CSize 
 foreign import ccall unsafe xpath_node_set_empty :: Ptr NodeSet -> IO CInt
 foreign import ccall unsafe xpath_node_set_index :: Ptr NodeSet -> CSize -> IO (Ptr XNode)
 

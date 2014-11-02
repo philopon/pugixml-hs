@@ -201,6 +201,41 @@ extern "C" {
 
   Node* node_root(const void* n) {return checkNewNode(static_cast<const Node*>(n)->root()); }
 
+  int set_name(void* n, const char* name) { return static_cast<Node*>(n)->set_name(name); }
+  int set_value(void* n, const char* name) { return static_cast<Node*>(n)->set_value(name); }
+
+  int append_attribute(void* n, const char* name, const char* val) { return static_cast<Node*>(n)->append_attribute(name).set_value(val); }
+  int prepend_attribute(void* n, const char* name, const char* val) { return static_cast<Node*>(n)->append_attribute(name).set_value(val); }
+
+  Node* append_child(void* n, pugi::xml_node_type typ) { return checkNewNode(static_cast<Node*>(n)->append_child(typ)); }
+  Node* prepend_child(void* n, pugi::xml_node_type typ) { return checkNewNode(static_cast<Node*>(n)->prepend_child(typ)); }
+
+  Node* append_copy(void* n, const Node* proto) { return checkNewNode(static_cast<Node*>(n)->append_copy(*proto)); }
+  Node* prepend_copy(void* n, const Node* proto) { return checkNewNode(static_cast<Node*>(n)->prepend_copy(*proto)); }
+
+  int remove_attribute(void* n, const char* name) { return static_cast<Node*>(n)->remove_attribute(name); }
+  int remove_child   (void* n, const Node* cld) { return static_cast<Node*>(n)->remove_child(*cld); }
+
+  ParseResult* append_buffer(void* node, const void* cont,
+      size_t size, unsigned int options, pugi::xml_encoding enc) {
+    return new pugi::xml_parse_result(static_cast<Node*>(node)->append_buffer(cont, size, options, enc));
+  }
+
+  void print(const void* node, void (*func)(const char*, size_t),
+      const char* indent, unsigned int flags, pugi::xml_encoding encoding,
+      unsigned int depth) {
+    wrap_writer wtr;
+    wtr.func = func;
+    static_cast<const Node*>(node)->print(wtr, indent, flags, encoding, depth);
+  }
+
+  XPathNode* select_single_node(const void* node, const XPath* x) {
+    return checkNewXPathNode(static_cast<const Node*>(node)->select_single_node(*x));
+  }
+  NodeSet* select_nodes(const void* node, const XPath* x) {
+    return new NodeSet(static_cast<const Node*>(node)->select_nodes(*x));
+  }
+
   ////// methods of xpath_node
   void delete_xpath_node(const XPathNode* p) { delete p; }
   Node* xpath_node_node(const XPathNode* p) { return checkNewNode(p->node()); }
