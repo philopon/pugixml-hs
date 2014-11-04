@@ -9,23 +9,30 @@ import qualified Data.ByteString as S
 
 data MutableFlag = Mutable | Immutable
 
-newtype Document_ (mutable :: MutableFlag) = Document (ForeignPtr (Document_ mutable))
-type Document = Document_ Immutable
-type MutableDocument = Document_ Mutable
+data NodeKind = Element -- ^ \<name\>children\</name\>
+              | PCData -- ^ value
+              | CData -- ^ \<![CDATA[value]]\>
+              | Comment -- ^ \<!--value--\>
+              | Pi -- ^ \<?name value?>
+              | Declaration -- ^ \<?name?\>
+              | Doctype -- ^ \<!DOCTYPE value\>
+              | Unknown
 
+newtype Document_ (k :: NodeKind) (m :: MutableFlag) = Document (ForeignPtr (Document_ k m))
+type Document = Document_ Unknown Immutable
+type MutableDocument = Document_ Unknown Mutable
 
-newtype Node_ (mutable :: MutableFlag) = Node (ForeignPtr (Node_ mutable))
-type Node = Node_ Immutable
-type MutableNode = Node_ Mutable
+newtype Node_ (k :: NodeKind) (m :: MutableFlag) = Node (ForeignPtr (Node_ k m))
+type Node = Node_ Unknown Immutable
+type MutableNode k = Node_ k Mutable
 
 newtype ParseResult = ParseResult (Ptr ParseResult)
 
 newtype XPath rt = XPath (ForeignPtr (XPath rt))
 
-data NodeSet  = NodeSet Int (ForeignPtr NodeSet)
-
+data NodeSet (m :: MutableFlag) = NodeSet Int (ForeignPtr (NodeSet m))
 
 data Attr
 data XNode
 type Attribute = (S.ByteString, S.ByteString)
-type XPathNode = Either Node Attribute
+type XPathNode m = Either (Node_ Unknown m) Attribute

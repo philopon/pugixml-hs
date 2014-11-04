@@ -29,7 +29,7 @@ foreign import ccall unsafe new_xpath_query_no_variable :: CString -> IO (Ptr (X
 foreign import ccall unsafe xpath_query_evaluate_boolean  :: Ptr (XPath Bool)         -> Ptr n -> IO CInt
 foreign import ccall unsafe xpath_query_evaluate_number   :: Ptr (XPath Double)       -> Ptr n -> IO CDouble
 foreign import ccall unsafe xpath_query_evaluate_string   :: Ptr (XPath S.ByteString) -> Ptr n -> IO CString
-foreign import ccall unsafe xpath_query_evaluate_node_set :: Ptr (XPath NodeSet)      -> Ptr n -> IO (Ptr NodeSet)
+foreign import ccall unsafe xpath_query_evaluate_node_set :: Ptr (XPath (NodeSet m))  -> Ptr n -> IO (Ptr (NodeSet m))
 
 foreign import ccall unsafe xpath_query_return_type :: Ptr (XPath a) -> IO XPathType
 foreign import ccall unsafe xpath_query_parse_is_success :: Ptr (XPath a) -> IO CInt
@@ -42,6 +42,18 @@ createXPath query = S.useAsCString query $ \c -> do
 createXPath' :: String -> XPath a
 createXPath' q = unsafeDupablePerformIO $ createXPath (fromString q)
 
+asNodeSet :: XPath (NodeSet m) -> XPath (NodeSet m)
+asNodeSet = id
+
+asDouble :: XPath Double -> XPath Double
+asDouble = id
+
+asByteString :: XPath S.ByteString -> XPath S.ByteString
+asByteString = id
+
+asBool :: XPath Bool -> XPath Bool
+asBool = id
+
 xpath' :: String -> ExpQ
 xpath' str = do
     rt <- runIO $ withCString str $ \c ->
@@ -49,14 +61,20 @@ xpath' str = do
         (toBool <$> xpath_query_parse_is_success x) >>= \case
             False -> fail $ "xpath compile failed: " ++ show str
             True  -> xpath_query_return_type x
-    let typ = if
-            | rt == xPathTypeNodeSet -> [t|NodeSet|]
-            | rt == xPathTypeNumber  -> [t|Double|]
-            | rt == xPathString      -> [t|S.ByteString|]
-            | rt == xPathBoolean     -> [t|Bool|]
+    let as = if
+            | rt == xPathTypeNodeSet -> [|asNodeSet|]
+            | rt == xPathTypeNumber  -> [|asDouble|]
+            | rt == xPathString      -> [|asByteString|]
+            | rt == xPathBoolean     -> [|asBool|]
             | otherwise              -> fail $ "xpath_type_none"
-    [|createXPath' $(stringE str) :: XPath $typ|]
+    [|$as (createXPath' $(stringE str))|]
 
+-- | generate xpath object.
+--
+-- @
+-- [xpath|query|] == ((xpathObject) :: XPath (instance of EvalXPath))
+-- @
+--
 xpath :: QuasiQuoter
 xpath = QuasiQuoter 
     { quoteExp  = xpath'
@@ -66,7 +84,7 @@ xpath = QuasiQuoter
     }
 
 class EvalXPath a where
-    evaluateXPath :: NodeLike n => XPath a -> n m -> IO a
+    evaluateXPath :: NodeLike n => XPath a -> n k m -> IO a
 
 instance EvalXPath Bool where
     evaluateXPath (XPath xp) nd = withForeignPtr xp $ \x -> withNode nd $ \n ->
@@ -81,7 +99,7 @@ instance EvalXPath S.ByteString where
         s <- xpath_query_evaluate_string x n
         S.packCString s <* free s
 
-instance EvalXPath NodeSet where
+instance EvalXPath (NodeSet m) where
     evaluateXPath (XPath xp) nd = withForeignPtr xp $ \x -> withNode nd $ \n -> do
         s <- xpath_query_evaluate_node_set x n
         l <- fromIntegral <$> xpath_node_set_size s

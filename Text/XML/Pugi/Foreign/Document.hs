@@ -25,17 +25,17 @@ import Unsafe.Coerce
 -- Document
 foreign import ccall unsafe new_document :: IO (Ptr MutableDocument)
 foreign import ccall unsafe "&delete_document" finalizerDocument
-    :: FinalizerPtr (Document_ a)
-foreign import ccall unsafe reset_document_with :: Ptr MutableDocument -> Ptr (Document_ a) -> IO ()
+    :: FinalizerPtr (Document_ k m)
+foreign import ccall unsafe reset_document_with :: Ptr MutableDocument -> Ptr (Document_ k m) -> IO ()
 
-freezeDocument :: Document_ a -> Document
+freezeDocument :: Document_ k m -> Document
 freezeDocument = unsafeCoerce
 {-# INLINE freezeDocument #-}
 
 createDocument :: IO MutableDocument
 createDocument = fmap Document $ newForeignPtr finalizerDocument =<< new_document
 
-copyDocument :: Document_ a -> IO MutableDocument
+copyDocument :: Document_ k m -> IO MutableDocument
 copyDocument (Document f) = withForeignPtr f $ \p -> do
     d <- new_document
     reset_document_with d p

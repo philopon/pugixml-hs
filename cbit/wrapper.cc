@@ -12,9 +12,9 @@ extern "C" {
   typedef pugi::xpath_node         XPathNode;
   typedef pugi::xpath_node_set     NodeSet;
 
-  inline Node* checkNewNode(const Node n) { if (n) {return new Node(n);} else {return NULL;} }
-  inline Attr* checkNewAttr(const Attr a) { if (a) {return new Attr(a);} else {return NULL;} }
-  inline XPathNode* checkNewXPathNode(const XPathNode n) { if (n) {return new XPathNode(n);} else {return NULL;} }
+  inline Node* checkNewNode(const Node& n) { if (n) {return new Node(n);} else {return NULL;} }
+  inline Attr* checkNewAttr(const Attr& a) { if (a) {return new Attr(a);} else {return NULL;} }
+  inline XPathNode* checkNewXPathNode(const XPathNode& n) { if (n) {return new XPathNode(n);} else {return NULL;} }
 
   int pugixml_version () { return PUGIXML_VERSION; }
 
@@ -132,6 +132,8 @@ extern "C" {
     doc->save(wtr, indent, flags, encoding);
   }
 
+  Node* document_element(const Document* doc) { return checkNewNode(doc->document_element()); }
+
   ////// methods of xml_parse_result
   void delete_parse_result(const ParseResult* r) { delete r; }
   int  parse_is_success(const ParseResult* r) { return *r ? true : false; }
@@ -147,6 +149,7 @@ extern "C" {
   const char* attr_name(const Attr* a) { return a->name(); }
   const char* attr_value(const Attr* a) { return a->value(); }
 
+  int attr_set_value(Attr* a, const char* v) { return a->set_value(v); }
 
   ////// methods of node
   void delete_node(const Node* n) { delete n; }
@@ -221,7 +224,7 @@ extern "C" {
     return new pugi::xml_parse_result(static_cast<Node*>(node)->append_buffer(cont, size, options, enc));
   }
 
-  void print(const void* node, void (*func)(const char*, size_t),
+  void node_print(const void* node, void (*func)(const char*, size_t),
       const char* indent, unsigned int flags, pugi::xml_encoding encoding,
       unsigned int depth) {
     wrap_writer wtr;
