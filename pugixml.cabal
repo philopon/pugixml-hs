@@ -11,6 +11,8 @@ Bug-reports:         https://github.com/philopon/pugixml-hs/issues
 copyright:           (c) 2014 Hirotomo Moriwaki
 category:            Text, XML
 build-type:          Simple
+extra-source-files:  pugixml-1.4/pugiconfig.hpp
+                     pugixml-1.4/pugixml.hpp
 cabal-version:       >=1.10
 
 library
