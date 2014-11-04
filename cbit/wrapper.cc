@@ -1,6 +1,7 @@
 #include <pugixml.hpp>
 #include <stdlib.h>
 #include <string>
+#include <cstring>
 #include <sstream>
 
 extern "C" {

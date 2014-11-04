@@ -156,6 +156,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Default.Class
 
 import System.IO.Unsafe
+import Unsafe.Coerce
 
 parse :: D.ParseConfig -> S.ByteString
       -> Either D.ParseException Document
@@ -190,6 +191,9 @@ type instance M Mutable   a = Modify a
 --
 class NodeLike n m where
     asNode                 :: n k m -> M m (Node_ k m)
+    forgetNodeKind         :: n k m -> n Unknown m
+    forgetNodeKind = unsafeCoerce
+    {-# INLINE forgetNodeKind #-}
     prettyNode             :: D.PrettyConfig -> Int -> n k m -> M m L.ByteString
     hashValue              :: n k m -> M m CSize
     nodeType               :: n k m -> M m NodeType

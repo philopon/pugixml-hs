@@ -31,6 +31,8 @@ newtype ParseResult = ParseResult (Ptr ParseResult)
 newtype XPath rt = XPath (ForeignPtr (XPath rt))
 
 data NodeSet (m :: MutableFlag) = NodeSet Int (ForeignPtr (NodeSet m))
+instance Show (NodeSet m) where
+    show (NodeSet i _) = "NodeSet " ++ show i ++ " items"
 
 data Attr
 data XNode
