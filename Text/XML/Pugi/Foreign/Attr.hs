@@ -1,0 +1,22 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+module Text.XML.Pugi.Foreign.Attr where
+
+import Control.Monad
+
+import Foreign.C
+import Foreign.Ptr
+
+import qualified Data.ByteString as S
+
+import Text.XML.Pugi.Foreign.Types
+
+-- attr
+foreign import ccall unsafe delete_attr :: Ptr Attr -> IO ()
+foreign import ccall unsafe attr_name   :: Ptr Attr -> IO CString
+foreign import ccall unsafe attr_value  :: Ptr Attr -> IO CString
+foreign import ccall unsafe attr_set_value :: Ptr Attr -> CString -> IO CInt
+
+attrName, attrValue :: Ptr Attr -> IO S.ByteString
+attrName  = attr_name  >=> S.packCString
+attrValue = attr_value >=> S.packCString
