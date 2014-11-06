@@ -220,6 +220,9 @@ class NodeLike n m where
     childValue             :: HasChildren k => n k m -> M m S.ByteString
     childValueByName       :: HasChildren k => S.ByteString -> n k m -> M m S.ByteString
     text                   :: n k m -> M m S.ByteString
+    findAttribute          :: (S.ByteString -> S.ByteString -> Bool) -> n k m -> M m (Maybe Attribute)
+    findChild              :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
+    findNode               :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
     mapSibling             :: (Node_ Unknown m -> a) -> n k m -> M m [a]
     mapAttrs               :: HasAttribute k => (S.ByteString -> S.ByteString -> a) -> n k m -> M m [a]
     path                   :: Char -> n k m -> M m S.ByteString
@@ -251,6 +254,9 @@ instance NodeLike Document_ Immutable where
     childValue             = unsafeDupablePerformIO . N.childValue
     childValueByName n     = unsafeDupablePerformIO . N.childValueByName n
     text                   = unsafeDupablePerformIO . N.text
+    findAttribute f        = unsafeDupablePerformIO . N.findAttribute f
+    findChild f            = unsafeDupablePerformIO . N.findChild f
+    findNode f             = unsafeDupablePerformIO . N.findNode f
     mapSibling f           = unsafeDupablePerformIO . N.mapSiblingM (return . f)
     mapAttrs f             = unsafeDupablePerformIO . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = unsafeDupablePerformIO . N.path c
@@ -282,6 +288,9 @@ instance NodeLike Node_ Immutable where
     childValue             = unsafeDupablePerformIO . N.childValue
     childValueByName n     = unsafeDupablePerformIO . N.childValueByName n
     text                   = unsafeDupablePerformIO . N.text
+    findAttribute f        = unsafeDupablePerformIO . N.findAttribute f
+    findChild f            = unsafeDupablePerformIO . N.findChild f
+    findNode f             = unsafeDupablePerformIO . N.findNode f
     mapSibling f           = unsafeDupablePerformIO . N.mapSiblingM (return . f)
     mapAttrs f             = unsafeDupablePerformIO . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = unsafeDupablePerformIO . N.path c
@@ -313,6 +322,9 @@ instance NodeLike Document_ Mutable where
     childValue             = Modify . fmap Right . N.childValue
     childValueByName n     = Modify . fmap Right . N.childValueByName n
     text                   = Modify . fmap Right . N.text
+    findAttribute f        = Modify . fmap Right . N.findAttribute f
+    findChild f            = Modify . fmap Right . N.findChild f
+    findNode f             = Modify . fmap Right . N.findNode f
     mapSibling f           = Modify . fmap Right . N.mapSiblingM (return . f)
     mapAttrs f             = Modify . fmap Right . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = Modify . fmap Right . N.path c
@@ -344,6 +356,9 @@ instance NodeLike Node_ Mutable where
     childValue             = Modify . fmap Right . N.childValue
     childValueByName n     = Modify . fmap Right . N.childValueByName n
     text                   = Modify . fmap Right . N.text
+    findAttribute f        = Modify . fmap Right . N.findAttribute f
+    findChild f            = Modify . fmap Right . N.findChild f
+    findNode f             = Modify . fmap Right . N.findNode f
     mapSibling f           = Modify . fmap Right . N.mapSiblingM (return . f)
     mapAttrs f             = Modify . fmap Right . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = Modify . fmap Right . N.path c

@@ -62,6 +62,16 @@ type NodeMapper k m = Ptr (Node_ k m) -> IO ()
 foreign import ccall unsafe "wrapper" wrap_node_mapper :: NodeMapper k m -> IO (FunPtr (NodeMapper k m))
 foreign import ccall node_map_sibling :: Ptr n -> FunPtr (NodeMapper k m) -> IO ()
 
+type AttrPred = Ptr Attr -> IO CInt
+foreign import ccall unsafe "wrapper" wrap_attr_pred :: AttrPred -> IO (FunPtr AttrPred)
+
+type NodePred = Ptr Node -> IO CInt
+foreign import ccall unsafe "wrapper" wrap_node_pred :: NodePred -> IO (FunPtr NodePred)
+
+foreign import ccall find_attribute :: Ptr n -> FunPtr AttrPred -> IO (Ptr Attr)
+foreign import ccall find_child     :: Ptr n -> FunPtr NodePred -> IO (Ptr (Node_ k m))
+foreign import ccall find_node      :: Ptr n -> FunPtr NodePred -> IO (Ptr (Node_ k m))
+
 type AttrMapper = Ptr Attr -> IO ()
 foreign import ccall unsafe "wrapper" wrap_attr_mapper :: AttrMapper -> IO (FunPtr AttrMapper)
 foreign import ccall node_map_attributes :: Ptr n -> FunPtr AttrMapper -> IO ()
@@ -100,6 +110,19 @@ nodeCommon n f = withNode n $ \p -> do
     if q == nullPtr
     then return Nothing
     else Just . Node <$> newForeignPtr finalizerNode q
+
+with_attr_pred :: (S.ByteString -> S.ByteString -> Bool) -> (FunPtr AttrPred -> IO a) -> IO a
+with_attr_pred fn m = do
+    let func p = do
+            n <- S.packCString =<< attr_name  p
+            v <- S.packCString =<< attr_value p
+            return . fromBool $ fn n v
+    bracket (wrap_attr_pred func) freeHaskellFunPtr m
+
+with_node_pred :: (Node -> Bool) -> (FunPtr NodePred -> IO a) -> IO a
+with_node_pred fn m =
+    let func p = fromBool . fn . Node <$> newForeignPtr_ p
+    in bracket (wrap_node_pred func) freeHaskellFunPtr m
 
 class NodeLike (n :: NodeKind -> MutableFlag -> *) where
     withNode :: n k m -> (Ptr (n k m) -> IO a) -> IO a
@@ -166,6 +189,19 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
 
     text :: n k m -> IO S.ByteString
     text n = withNode n $ node_text >=> S.packCString
+
+    findAttribute :: (S.ByteString -> S.ByteString -> Bool) -> n k m -> IO (Maybe Attribute)
+    findAttribute f nd = withNode nd $ \n -> with_attr_pred f $ \a ->
+        bracket (find_attribute n a) delete_attr $ \attr ->
+            if attr == nullPtr
+            then return Nothing
+            else fmap Just $ (,) <$> (S.packCString =<< attr_name attr) <*> (S.packCString =<< attr_value attr)
+
+    findChild :: (Node -> Bool) -> n k m -> IO (Maybe (Node_ Unknown m))
+    findChild f nd = nodeCommon nd $ \n -> with_node_pred f $ find_child n
+
+    findNode :: (Node -> Bool) -> n k m -> IO (Maybe (Node_ Unknown m))
+    findNode f nd = nodeCommon nd $ \n -> with_node_pred f $ find_node n
 
     mapSiblingM_ :: (Node_ Unknown m -> IO ()) -> n k m -> IO ()
     mapSiblingM_ func n = withNode n $ \p -> do
