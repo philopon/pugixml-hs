@@ -29,80 +29,88 @@ import Text.XML.Pugi.Foreign.Types
 import Text.XML.Pugi.Foreign.Attr
 
 -- node
-foreign import ccall unsafe "&delete_node" finalizerNode
+foreign import ccall "&delete_node" finalizerNode
     :: FinalizerPtr (Node_ k m)
 
-foreign import ccall unsafe document_element :: Ptr (Document_ k m) -> IO (Ptr (Node_ k m))
+foreign import ccall document_element :: Ptr (Document_ k m) -> IO (Ptr (Node_ k m))
 
-foreign import ccall unsafe node_hash_value :: Ptr n -> IO CSize
+foreign import ccall node_equal :: Ptr a -> Ptr b -> IO CInt
 
-foreign import ccall unsafe node_type :: Ptr n -> IO NodeType
+foreign import ccall node_hash_value :: Ptr n -> IO CSize
 
-foreign import ccall unsafe node_name  :: Ptr n -> IO CString
-foreign import ccall unsafe node_value :: Ptr n -> IO CString
+foreign import ccall node_type :: Ptr n -> IO NodeType
 
-foreign import ccall unsafe node_parent           :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_first_child      :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_last_child       :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_next_sibling     :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_previous_sibling :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_name  :: Ptr n -> IO CString
+foreign import ccall node_value :: Ptr n -> IO CString
 
-foreign import ccall unsafe node_child :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_attribute :: Ptr n -> CString -> IO (Ptr Attr)
-foreign import ccall unsafe node_next_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_previous_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_find_child_by_name_and_attribute :: Ptr n -> CString -> CString -> CString -> IO (Ptr (Node_ Unknown a))
-foreign import ccall unsafe node_find_child_by_attribute :: Ptr n -> CString -> CString -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_parent           :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_first_child      :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_last_child       :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_next_sibling     :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_previous_sibling :: Ptr n -> IO (Ptr (Node_ Unknown a))
 
-foreign import ccall unsafe node_child_value :: Ptr n -> IO CString
-foreign import ccall unsafe node_child_value_by_name :: Ptr n -> CString -> IO CString
-foreign import ccall unsafe node_text :: Ptr n -> IO CString
+foreign import ccall node_child :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_attribute :: Ptr n -> CString -> IO (Ptr Attr)
+foreign import ccall node_next_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_previous_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_find_child_by_name_and_attribute :: Ptr n -> CString -> CString -> CString -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_find_child_by_attribute :: Ptr n -> CString -> CString -> IO (Ptr (Node_ Unknown a))
+
+foreign import ccall node_child_value :: Ptr n -> IO CString
+foreign import ccall node_child_value_by_name :: Ptr n -> CString -> IO CString
+foreign import ccall node_text :: Ptr n -> IO CString
 
 type NodeMapper k m = Ptr (Node_ k m) -> IO ()
-foreign import ccall unsafe "wrapper" wrap_node_mapper :: NodeMapper k m -> IO (FunPtr (NodeMapper k m))
+foreign import ccall "wrapper" wrap_node_mapper :: NodeMapper k m -> IO (FunPtr (NodeMapper k m))
 foreign import ccall node_map_sibling :: Ptr n -> FunPtr (NodeMapper k m) -> IO ()
 
 type AttrPred = Ptr Attr -> IO CInt
-foreign import ccall unsafe "wrapper" wrap_attr_pred :: AttrPred -> IO (FunPtr AttrPred)
+foreign import ccall "wrapper" wrap_attr_pred :: AttrPred -> IO (FunPtr AttrPred)
 
 type NodePred = Ptr Node -> IO CInt
-foreign import ccall unsafe "wrapper" wrap_node_pred :: NodePred -> IO (FunPtr NodePred)
+foreign import ccall "wrapper" wrap_node_pred :: NodePred -> IO (FunPtr NodePred)
 
 foreign import ccall find_attribute :: Ptr n -> FunPtr AttrPred -> IO (Ptr Attr)
 foreign import ccall find_child     :: Ptr n -> FunPtr NodePred -> IO (Ptr (Node_ k m))
 foreign import ccall find_node      :: Ptr n -> FunPtr NodePred -> IO (Ptr (Node_ k m))
 
+type BeginEnd m = Ptr (Node_ Unknown m) -> IO CInt
+type ForEach  m = CInt -> Ptr (Node_ Unknown m) -> IO CInt
+foreign import ccall "wrapper" wrap_begin_end :: BeginEnd m -> IO (FunPtr (BeginEnd m))
+foreign import ccall "wrapper" wrap_for_each  :: ForEach  m -> IO (FunPtr (ForEach  m))
+foreign import ccall node_traverse :: Ptr n -> FunPtr (BeginEnd m) -> FunPtr (ForEach m) -> FunPtr (BeginEnd m) -> IO CInt
+
 type AttrMapper = Ptr Attr -> IO ()
-foreign import ccall unsafe "wrapper" wrap_attr_mapper :: AttrMapper -> IO (FunPtr AttrMapper)
+foreign import ccall "wrapper" wrap_attr_mapper :: AttrMapper -> IO (FunPtr AttrMapper)
 foreign import ccall node_map_attributes :: Ptr n -> FunPtr AttrMapper -> IO ()
 
-foreign import ccall unsafe node_path :: Ptr n -> CChar -> IO CString -- must be free
+foreign import ccall node_path :: Ptr n -> CChar -> IO CString -- must be free
 
-foreign import ccall unsafe node_first_element_by_path :: Ptr n -> CString -> CChar -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_first_element_by_path :: Ptr n -> CString -> CChar -> IO (Ptr (Node_ Unknown a))
 
-foreign import ccall unsafe node_root :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_root :: Ptr n -> IO (Ptr (Node_ Unknown a))
 
-foreign import ccall unsafe set_name  :: Ptr n -> CString -> IO CInt
-foreign import ccall unsafe set_value :: Ptr n -> CString -> IO CInt
+foreign import ccall set_name  :: Ptr n -> CString -> IO CInt
+foreign import ccall set_value :: Ptr n -> CString -> IO CInt
 
-foreign import ccall unsafe append_attribute  :: Ptr n -> CString -> CString -> IO CInt
-foreign import ccall unsafe prepend_attribute :: Ptr n -> CString -> CString -> IO CInt
+foreign import ccall append_attribute  :: Ptr n -> CString -> CString -> IO CInt
+foreign import ccall prepend_attribute :: Ptr n -> CString -> CString -> IO CInt
 
-foreign import ccall unsafe append_child  :: Ptr n -> NodeType -> IO (Ptr (Node_ k a))
-foreign import ccall unsafe prepend_child :: Ptr n -> NodeType -> IO (Ptr (Node_ k a))
+foreign import ccall append_child  :: Ptr n -> NodeType -> IO (Ptr (Node_ k a))
+foreign import ccall prepend_child :: Ptr n -> NodeType -> IO (Ptr (Node_ k a))
 
-foreign import ccall unsafe append_copy  :: Ptr n -> Ptr (Node_ k a) -> IO (Ptr (Node_ k b))
-foreign import ccall unsafe prepend_copy :: Ptr n -> Ptr (Node_ k a) -> IO (Ptr (Node_ k b))
+foreign import ccall append_copy  :: Ptr n -> Ptr (Node_ k a) -> IO (Ptr (Node_ k b))
+foreign import ccall prepend_copy :: Ptr n -> Ptr (Node_ k a) -> IO (Ptr (Node_ k b))
 
-foreign import ccall unsafe remove_attribute :: Ptr n -> CString -> IO CInt
-foreign import ccall unsafe remove_child     :: Ptr n -> Ptr (Node_ k a) -> IO CInt
+foreign import ccall remove_attribute :: Ptr n -> CString -> IO CInt
+foreign import ccall remove_child     :: Ptr n -> Ptr (Node_ k a) -> IO CInt
 
-foreign import ccall unsafe append_buffer :: Ptr n -> Ptr c -> CSize -> CUInt -> Encoding -> IO ParseResult
+foreign import ccall append_buffer :: Ptr n -> Ptr c -> CSize -> CUInt -> Encoding -> IO ParseResult
 
-foreign import ccall unsafe node_print :: Ptr n -> FunPtr Writer -> CString -> FormatFlags -> Encoding -> CUInt -> IO ()
+foreign import ccall node_print :: Ptr n -> FunPtr Writer -> CString -> FormatFlags -> Encoding -> CUInt -> IO ()
 
-foreign import ccall unsafe select_single_node :: Ptr n -> Ptr (XPath (NodeSet m)) -> IO (Ptr XNode)
-foreign import ccall unsafe select_nodes :: Ptr n -> Ptr (XPath (NodeSet m)) -> IO (Ptr (NodeSet m))
+foreign import ccall select_single_node :: Ptr n -> Ptr (XPath (NodeSet m)) -> IO (Ptr XNode)
+foreign import ccall select_nodes :: Ptr n -> Ptr (XPath (NodeSet m)) -> IO (Ptr (NodeSet m))
 
 nodeCommon :: NodeLike n => n k m -> (Ptr (n k m) -> IO (Ptr (Node_ l m))) -> IO (Maybe (Node_ l m))
 nodeCommon n f = withNode n $ \p -> do
@@ -128,6 +136,9 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
     withNode :: n k m -> (Ptr (n k m) -> IO a) -> IO a
 
     asNode :: n k m -> IO (Node_ k m)
+
+    nodeEqual :: n k m -> n l o -> IO Bool
+    nodeEqual a b = withNode a $ \p -> withNode b $ \q -> toBool <$> node_equal p q
 
     hashValue :: n k m -> IO CSize
     hashValue n = withNode n node_hash_value
@@ -293,12 +304,12 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
             readIORef ref >>= \r -> return $ L.fromChunks (r [])
 
 -- xpath_node
-foreign import ccall unsafe delete_xpath_node :: Ptr XNode -> IO ()
-foreign import ccall unsafe xpath_node_node :: Ptr XNode -> IO (Ptr (Node_ Unknown m))
-foreign import ccall unsafe xpath_node_attribute :: Ptr XNode -> IO (Ptr Attr)
+foreign import ccall delete_xpath_node :: Ptr XNode -> IO ()
+foreign import ccall xpath_node_node :: Ptr XNode -> IO (Ptr (Node_ Unknown m))
+foreign import ccall xpath_node_attribute :: Ptr XNode -> IO (Ptr Attr)
 
-foreign import ccall unsafe "&delete_xpath_node_set" finalizerXpathNodeSet :: FinalizerPtr (NodeSet m)
-foreign import ccall unsafe xpath_node_set_size :: Ptr (NodeSet m) -> IO CSize 
+foreign import ccall "&delete_xpath_node_set" finalizerXpathNodeSet :: FinalizerPtr (NodeSet m)
+foreign import ccall xpath_node_set_size :: Ptr (NodeSet m) -> IO CSize 
 
 peekXNode :: Ptr XNode -> IO (XPathNode m)
 peekXNode p = do

@@ -160,16 +160,23 @@ import Unsafe.Coerce
 
 parse :: D.ParseConfig -> S.ByteString
       -> Either D.ParseException Document
-parse cfg str = unsafeDupablePerformIO $ D.parse cfg str
+parse cfg str = unsafePerformIO $ D.parse cfg str
+{-# NOINLINE parse #-}
 
 pretty :: D.PrettyConfig -> Document -> L.ByteString
 pretty cfg doc = unsafeDupablePerformIO $ D.pretty cfg doc
 
-instance Show Node where
+instance Show (Node_ k Immutable) where
     show = ("Node " ++) . L8.unpack . prettyNode def {D.prettyFlags = formatRaw} 0
 
-instance Show Document where
+instance Show (Document_ k Immutable) where
     show = ("Document " ++) . L8.unpack . prettyNode def {D.prettyFlags = formatRaw} 0
+
+instance Eq (Node_ k Immutable) where
+    (==) = nodeEqual
+
+instance Eq (Document_ k Immutable) where
+    (==) = nodeEqual
 
 -- |
 -- @
@@ -191,6 +198,7 @@ type instance M Mutable   a = Modify a
 --
 class NodeLike n m where
     asNode                 :: n k m -> M m (Node_ k m)
+    nodeEqual              :: n k m -> n l o -> M m Bool
     forgetNodeKind         :: n k m -> n Unknown m
     forgetNodeKind = unsafeCoerce
     {-# INLINE forgetNodeKind #-}
@@ -234,6 +242,7 @@ class NodeLike n m where
 
 instance NodeLike Document_ Immutable where
     asNode              = unsafeDupablePerformIO . N.asNode
+    nodeEqual a         = unsafeDupablePerformIO . N.nodeEqual a
     prettyNode cfg dph  = unsafeDupablePerformIO . N.prettyNode cfg dph
     hashValue           = unsafeDupablePerformIO . N.hashValue
     nodeType            = unsafeDupablePerformIO . N.nodeType
@@ -268,6 +277,7 @@ instance NodeLike Document_ Immutable where
 
 instance NodeLike Node_ Immutable where
     asNode              = unsafeDupablePerformIO . N.asNode
+    nodeEqual a         = unsafeDupablePerformIO . N.nodeEqual a
     prettyNode cfg dph  = unsafeDupablePerformIO . N.prettyNode cfg dph
     hashValue           = unsafeDupablePerformIO . N.hashValue
     nodeType            = unsafeDupablePerformIO . N.nodeType
@@ -302,6 +312,7 @@ instance NodeLike Node_ Immutable where
 
 instance NodeLike Document_ Mutable where
     asNode              = Modify . fmap Right . N.asNode
+    nodeEqual a         = Modify . fmap Right . N.nodeEqual a
     prettyNode cfg dph  = Modify . fmap Right . N.prettyNode cfg dph
     hashValue           = Modify . fmap Right . N.hashValue
     nodeType            = Modify . fmap Right . N.nodeType
@@ -336,6 +347,7 @@ instance NodeLike Document_ Mutable where
 
 instance NodeLike Node_ Mutable where
     asNode              = Modify . fmap Right . N.asNode
+    nodeEqual a         = Modify . fmap Right . N.nodeEqual a
     prettyNode cfg dph  = Modify . fmap Right . N.prettyNode cfg dph
     hashValue           = Modify . fmap Right . N.hashValue
     nodeType            = Modify . fmap Right . N.nodeType

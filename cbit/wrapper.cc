@@ -155,6 +155,8 @@ extern "C" {
   ////// methods of node
   void delete_node(const Node* n) { delete n; }
 
+  bool node_equal(const void* a, const void* b) { return *static_cast<const Node*>(a) == *static_cast<const Node*>(b); }
+
   size_t node_hash_value(const void* n) { return static_cast<const Node*>(n)->hash_value(); }
 
   int node_type(const void* n) { return static_cast<const Node*>(n)->type(); }

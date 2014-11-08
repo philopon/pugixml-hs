@@ -14,11 +14,11 @@ import Text.XML.Pugi.Foreign.Node
 
 import Data.IORef
 
-foreign import ccall unsafe xpath_node_set_empty :: Ptr (NodeSet m) -> IO CInt
-foreign import ccall unsafe xpath_node_set_index :: Ptr (NodeSet m) -> CSize -> IO (Ptr XNode)
+foreign import ccall xpath_node_set_empty :: Ptr (NodeSet m) -> IO CInt
+foreign import ccall xpath_node_set_index :: Ptr (NodeSet m) -> CSize -> IO (Ptr XNode)
 
-foreign import ccall unsafe "wrapper" wrap_xpath_node_mapper :: (Ptr XNode -> IO ()) -> IO (FunPtr (Ptr XNode -> IO ()))
-foreign import ccall        xpath_node_set_map :: Ptr (NodeSet m) -> FunPtr (Ptr XNode -> IO ()) -> IO ()
+foreign import ccall "wrapper" wrap_xpath_node_mapper :: (Ptr XNode -> IO ()) -> IO (FunPtr (Ptr XNode -> IO ()))
+foreign import ccall xpath_node_set_map :: Ptr (NodeSet m) -> FunPtr (Ptr XNode -> IO ()) -> IO ()
 
 nodeSetSize :: NodeSet m -> Int
 nodeSetSize (NodeSet l _) = l

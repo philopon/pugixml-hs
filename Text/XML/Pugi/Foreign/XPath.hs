@@ -22,17 +22,17 @@ import Text.XML.Pugi.Foreign.Types
 import Text.XML.Pugi.Foreign.Const
 import Text.XML.Pugi.Foreign.Node
 
-foreign import ccall unsafe delete_xpath_query :: Ptr (XPath a) -> IO ()
-foreign import ccall unsafe "&delete_xpath_query" finalizerXpathQuery :: FinalizerPtr (XPath a)
-foreign import ccall unsafe new_xpath_query_no_variable :: CString -> IO (Ptr (XPath a))
+foreign import ccall delete_xpath_query :: Ptr (XPath a) -> IO ()
+foreign import ccall "&delete_xpath_query" finalizerXpathQuery :: FinalizerPtr (XPath a)
+foreign import ccall new_xpath_query_no_variable :: CString -> IO (Ptr (XPath a))
 
-foreign import ccall unsafe xpath_query_evaluate_boolean  :: Ptr (XPath Bool)         -> Ptr n -> IO CInt
-foreign import ccall unsafe xpath_query_evaluate_number   :: Ptr (XPath Double)       -> Ptr n -> IO CDouble
-foreign import ccall unsafe xpath_query_evaluate_string   :: Ptr (XPath S.ByteString) -> Ptr n -> IO CString
-foreign import ccall unsafe xpath_query_evaluate_node_set :: Ptr (XPath (NodeSet m))  -> Ptr n -> IO (Ptr (NodeSet m))
+foreign import ccall xpath_query_evaluate_boolean  :: Ptr (XPath Bool)         -> Ptr n -> IO CInt
+foreign import ccall xpath_query_evaluate_number   :: Ptr (XPath Double)       -> Ptr n -> IO CDouble
+foreign import ccall xpath_query_evaluate_string   :: Ptr (XPath S.ByteString) -> Ptr n -> IO CString
+foreign import ccall xpath_query_evaluate_node_set :: Ptr (XPath (NodeSet m))  -> Ptr n -> IO (Ptr (NodeSet m))
 
-foreign import ccall unsafe xpath_query_return_type :: Ptr (XPath a) -> IO XPathType
-foreign import ccall unsafe xpath_query_parse_is_success :: Ptr (XPath a) -> IO CInt
+foreign import ccall xpath_query_return_type :: Ptr (XPath a) -> IO XPathType
+foreign import ccall xpath_query_parse_is_success :: Ptr (XPath a) -> IO CInt
 
 createXPath :: S.ByteString -> IO (XPath a)
 createXPath query = S.useAsCString query $ \c -> do

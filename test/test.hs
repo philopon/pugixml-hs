@@ -23,6 +23,7 @@ testA = either undefined id $ parse def { parseFlags = parseFull } testAStr
 tests :: TestTree
 tests = testGroup "Tests"
     [ parsePretty
+    , immutable
     ]
 
 parsePretty :: TestTree
@@ -33,3 +34,13 @@ parsePretty = testGroup "Parse/Pretty"
     pp s = either undefined (pretty def {prettyFlags = formatRaw} ) $
         parse def { parseFlags = parseFull } s
 
+immutable :: TestTree
+immutable = testGroup "Immutable"
+    [ immutableTestAFoo
+    ]
+
+immutableTestAFoo :: TestTree
+immutableTestAFoo = testGroup "TestA/foo"
+    [ testCase "parent.child == id" $ Just node @?= (child "bar" node >>= parent)
+    ]
+  where Just node = child "foo" testA
