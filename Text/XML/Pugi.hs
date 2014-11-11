@@ -228,8 +228,14 @@ class NodeLike n m where
     childValue             :: HasChildren k => n k m -> M m S.ByteString
     childValueByName       :: HasChildren k => S.ByteString -> n k m -> M m S.ByteString
     text                   :: n k m -> M m S.ByteString
+
+    -- | find attribute by predicate. since v0.2.0.
     findAttribute          :: (S.ByteString -> S.ByteString -> Bool) -> n k m -> M m (Maybe Attribute)
+
+    -- | find child by predicate. since v0.2.0.
     findChild              :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
+
+    -- | find node by predicate. since v0.2.0.
     findNode               :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
     mapSibling             :: (Node_ Unknown m -> a) -> n k m -> M m [a]
     mapAttrs               :: HasAttribute k => (S.ByteString -> S.ByteString -> a) -> n k m -> M m [a]
