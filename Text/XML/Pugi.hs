@@ -160,16 +160,23 @@ import Unsafe.Coerce
 
 parse :: D.ParseConfig -> S.ByteString
       -> Either D.ParseException Document
-parse cfg str = unsafeDupablePerformIO $ D.parse cfg str
+parse cfg str = unsafePerformIO $ D.parse cfg str
+{-# NOINLINE parse #-}
 
 pretty :: D.PrettyConfig -> Document -> L.ByteString
 pretty cfg doc = unsafeDupablePerformIO $ D.pretty cfg doc
 
-instance Show Node where
+instance Show (Node_ k Immutable) where
     show = ("Node " ++) . L8.unpack . prettyNode def {D.prettyFlags = formatRaw} 0
 
-instance Show Document where
+instance Show (Document_ k Immutable) where
     show = ("Document " ++) . L8.unpack . prettyNode def {D.prettyFlags = formatRaw} 0
+
+instance Eq (Node_ k Immutable) where
+    (==) = nodeEqual
+
+instance Eq (Document_ k Immutable) where
+    (==) = nodeEqual
 
 -- |
 -- @
@@ -191,6 +198,7 @@ type instance M Mutable   a = Modify a
 --
 class NodeLike n m where
     asNode                 :: n k m -> M m (Node_ k m)
+    nodeEqual              :: n k m -> n l o -> M m Bool
     forgetNodeKind         :: n k m -> n Unknown m
     forgetNodeKind = unsafeCoerce
     {-# INLINE forgetNodeKind #-}
@@ -220,6 +228,15 @@ class NodeLike n m where
     childValue             :: HasChildren k => n k m -> M m S.ByteString
     childValueByName       :: HasChildren k => S.ByteString -> n k m -> M m S.ByteString
     text                   :: n k m -> M m S.ByteString
+
+    -- | find attribute by predicate. since v0.2.0.
+    findAttribute          :: (S.ByteString -> S.ByteString -> Bool) -> n k m -> M m (Maybe Attribute)
+
+    -- | find child by predicate. since v0.2.0.
+    findChild              :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
+
+    -- | find node by predicate. since v0.2.0.
+    findNode               :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
     mapSibling             :: (Node_ Unknown m -> a) -> n k m -> M m [a]
     mapAttrs               :: HasAttribute k => (S.ByteString -> S.ByteString -> a) -> n k m -> M m [a]
     path                   :: Char -> n k m -> M m S.ByteString
@@ -231,6 +248,7 @@ class NodeLike n m where
 
 instance NodeLike Document_ Immutable where
     asNode              = unsafeDupablePerformIO . N.asNode
+    nodeEqual a         = unsafeDupablePerformIO . N.nodeEqual a
     prettyNode cfg dph  = unsafeDupablePerformIO . N.prettyNode cfg dph
     hashValue           = unsafeDupablePerformIO . N.hashValue
     nodeType            = unsafeDupablePerformIO . N.nodeType
@@ -251,6 +269,9 @@ instance NodeLike Document_ Immutable where
     childValue             = unsafeDupablePerformIO . N.childValue
     childValueByName n     = unsafeDupablePerformIO . N.childValueByName n
     text                   = unsafeDupablePerformIO . N.text
+    findAttribute f        = unsafeDupablePerformIO . N.findAttribute f
+    findChild f            = unsafeDupablePerformIO . N.findChild f
+    findNode f             = unsafeDupablePerformIO . N.findNode f
     mapSibling f           = unsafeDupablePerformIO . N.mapSiblingM (return . f)
     mapAttrs f             = unsafeDupablePerformIO . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = unsafeDupablePerformIO . N.path c
@@ -262,6 +283,7 @@ instance NodeLike Document_ Immutable where
 
 instance NodeLike Node_ Immutable where
     asNode              = unsafeDupablePerformIO . N.asNode
+    nodeEqual a         = unsafeDupablePerformIO . N.nodeEqual a
     prettyNode cfg dph  = unsafeDupablePerformIO . N.prettyNode cfg dph
     hashValue           = unsafeDupablePerformIO . N.hashValue
     nodeType            = unsafeDupablePerformIO . N.nodeType
@@ -282,6 +304,9 @@ instance NodeLike Node_ Immutable where
     childValue             = unsafeDupablePerformIO . N.childValue
     childValueByName n     = unsafeDupablePerformIO . N.childValueByName n
     text                   = unsafeDupablePerformIO . N.text
+    findAttribute f        = unsafeDupablePerformIO . N.findAttribute f
+    findChild f            = unsafeDupablePerformIO . N.findChild f
+    findNode f             = unsafeDupablePerformIO . N.findNode f
     mapSibling f           = unsafeDupablePerformIO . N.mapSiblingM (return . f)
     mapAttrs f             = unsafeDupablePerformIO . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = unsafeDupablePerformIO . N.path c
@@ -293,6 +318,7 @@ instance NodeLike Node_ Immutable where
 
 instance NodeLike Document_ Mutable where
     asNode              = Modify . fmap Right . N.asNode
+    nodeEqual a         = Modify . fmap Right . N.nodeEqual a
     prettyNode cfg dph  = Modify . fmap Right . N.prettyNode cfg dph
     hashValue           = Modify . fmap Right . N.hashValue
     nodeType            = Modify . fmap Right . N.nodeType
@@ -313,6 +339,9 @@ instance NodeLike Document_ Mutable where
     childValue             = Modify . fmap Right . N.childValue
     childValueByName n     = Modify . fmap Right . N.childValueByName n
     text                   = Modify . fmap Right . N.text
+    findAttribute f        = Modify . fmap Right . N.findAttribute f
+    findChild f            = Modify . fmap Right . N.findChild f
+    findNode f             = Modify . fmap Right . N.findNode f
     mapSibling f           = Modify . fmap Right . N.mapSiblingM (return . f)
     mapAttrs f             = Modify . fmap Right . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = Modify . fmap Right . N.path c
@@ -324,6 +353,7 @@ instance NodeLike Document_ Mutable where
 
 instance NodeLike Node_ Mutable where
     asNode              = Modify . fmap Right . N.asNode
+    nodeEqual a         = Modify . fmap Right . N.nodeEqual a
     prettyNode cfg dph  = Modify . fmap Right . N.prettyNode cfg dph
     hashValue           = Modify . fmap Right . N.hashValue
     nodeType            = Modify . fmap Right . N.nodeType
@@ -344,6 +374,9 @@ instance NodeLike Node_ Mutable where
     childValue             = Modify . fmap Right . N.childValue
     childValueByName n     = Modify . fmap Right . N.childValueByName n
     text                   = Modify . fmap Right . N.text
+    findAttribute f        = Modify . fmap Right . N.findAttribute f
+    findChild f            = Modify . fmap Right . N.findChild f
+    findNode f             = Modify . fmap Right . N.findNode f
     mapSibling f           = Modify . fmap Right . N.mapSiblingM (return . f)
     mapAttrs f             = Modify . fmap Right . N.mapAttrsM (\k v -> return $ f k v)
     path c                 = Modify . fmap Right . N.path c

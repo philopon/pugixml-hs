@@ -23,10 +23,10 @@ import Text.XML.Pugi.Foreign.Types
 import Unsafe.Coerce
 
 -- Document
-foreign import ccall unsafe new_document :: IO (Ptr MutableDocument)
-foreign import ccall unsafe "&delete_document" finalizerDocument
+foreign import ccall new_document :: IO (Ptr MutableDocument)
+foreign import ccall "&delete_document" finalizerDocument
     :: FinalizerPtr (Document_ k m)
-foreign import ccall unsafe reset_document_with :: Ptr MutableDocument -> Ptr (Document_ k m) -> IO ()
+foreign import ccall reset_document_with :: Ptr MutableDocument -> Ptr (Document_ k m) -> IO ()
 
 freezeDocument :: Document_ k m -> Document
 freezeDocument = unsafeCoerce
@@ -42,12 +42,12 @@ copyDocument (Document f) = withForeignPtr f $ \p -> do
     Document <$> newForeignPtr finalizerDocument d
 
 -- Parsing
-foreign import ccall unsafe delete_parse_result      :: ParseResult -> IO ()
-foreign import ccall unsafe parse_is_success         :: ParseResult -> IO CInt
-foreign import ccall unsafe parse_result_status      :: ParseResult -> IO ParseStatus
-foreign import ccall unsafe parse_result_offset      :: ParseResult -> IO CLong
-foreign import ccall unsafe parse_result_encoding    :: ParseResult -> IO Encoding
-foreign import ccall unsafe parse_result_description :: ParseResult -> IO CString
+foreign import ccall delete_parse_result      :: ParseResult -> IO ()
+foreign import ccall parse_is_success         :: ParseResult -> IO CInt
+foreign import ccall parse_result_status      :: ParseResult -> IO ParseStatus
+foreign import ccall parse_result_offset      :: ParseResult -> IO CLong
+foreign import ccall parse_result_encoding    :: ParseResult -> IO Encoding
+foreign import ccall parse_result_description :: ParseResult -> IO CString
 
 foreign import ccall load_buffer :: Ptr MutableDocument -> Ptr a -> CSize -> ParseFlags -> Encoding -> IO ParseResult
 foreign import ccall load_file   :: Ptr MutableDocument -> CString -> ParseFlags -> Encoding -> IO ParseResult

@@ -155,6 +155,8 @@ extern "C" {
   ////// methods of node
   void delete_node(const Node* n) { delete n; }
 
+  bool node_equal(const void* a, const void* b) { return *static_cast<const Node*>(a) == *static_cast<const Node*>(b); }
+
   size_t node_hash_value(const void* n) { return static_cast<const Node*>(n)->hash_value(); }
 
   int node_type(const void* n) { return static_cast<const Node*>(n)->type(); }
@@ -178,6 +180,43 @@ extern "C" {
   const char* node_child_value(const void* n) { return static_cast<const Node*>(n)->child_value(); }
   const char* node_child_value_by_name(const void* n, const char* name) { return static_cast<const Node*>(n)->child_value(name); }
   const char* node_text(const void* n) { return static_cast<const Node*>(n)->text().get(); }
+
+  typedef struct predicate {
+    bool (*attr_pred)(const Attr*);
+    bool (*node_pred)(const Node*);
+
+    bool operator()(pugi::xml_attribute attr) const {
+      return attr_pred(&attr);
+    }
+
+    bool operator()(pugi::xml_node node) const {
+      return node_pred(&node);
+    }
+  } predicate_t;
+
+  bool default_attr_pred (const Attr*) { return true; }
+  bool default_node_pred (const Node*) { return true; }
+
+  Attr* find_attribute(const void* node, bool(*attr_pred)(const Attr*)) {
+    predicate_t pred;
+    pred.attr_pred = attr_pred;
+    pred.node_pred = &default_node_pred;
+    return checkNewAttr(static_cast<const Node*>(node)->find_attribute(pred));
+  }
+
+  Node* find_child(const void* node, bool(node_pred)(const Node*)) {
+    predicate_t pred;
+    pred.attr_pred = default_attr_pred;
+    pred.node_pred = node_pred;
+    return checkNewNode(static_cast<const Node*>(node)->find_child(pred));
+  }
+
+  Node* find_node(const void* node, bool(node_pred)(const Node*)) {
+    predicate_t pred;
+    pred.attr_pred = default_attr_pred;
+    pred.node_pred = node_pred;
+    return checkNewNode(static_cast<const Node*>(node)->find_node(pred));
+  }
 
   void node_map_sibling (const void* node, void (*fun)(Node*)) {
     const Node* n = static_cast<const Node*>(node);
