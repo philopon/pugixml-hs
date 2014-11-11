@@ -78,7 +78,6 @@ type BeginEnd m = Ptr (Node_ Unknown m) -> IO CInt
 type ForEach  m = CInt -> Ptr (Node_ Unknown m) -> IO CInt
 foreign import ccall "wrapper" wrap_begin_end :: BeginEnd m -> IO (FunPtr (BeginEnd m))
 foreign import ccall "wrapper" wrap_for_each  :: ForEach  m -> IO (FunPtr (ForEach  m))
-foreign import ccall node_traverse :: Ptr n -> FunPtr (BeginEnd m) -> FunPtr (ForEach m) -> FunPtr (BeginEnd m) -> IO CInt
 
 type AttrMapper = Ptr Attr -> IO ()
 foreign import ccall "wrapper" wrap_attr_mapper :: AttrMapper -> IO (FunPtr AttrMapper)
