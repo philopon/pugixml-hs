@@ -1,6 +1,7 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
 module Text.XML.Pugi.Foreign.Types where
 
 import Foreign.ForeignPtr
@@ -28,7 +29,7 @@ type MutableNode k = Node_ k Mutable
 
 newtype ParseResult = ParseResult (Ptr ParseResult)
 
-newtype XPath rt = XPath (ForeignPtr (XPath rt))
+newtype XPath (rt :: k) = XPath (ForeignPtr (XPath rt))
 
 data NodeSet (m :: MutableFlag) = NodeSet Int (ForeignPtr (NodeSet m))
 instance Show (NodeSet m) where

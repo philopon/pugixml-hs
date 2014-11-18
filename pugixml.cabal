@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Text.XML.Pugi
+                       Text.XML.Pugi.Mutable
                        Text.XML.Pugi.Const
   other-modules:       Text.XML.Pugi.Foreign.Const
                        Text.XML.Pugi.Foreign.Node

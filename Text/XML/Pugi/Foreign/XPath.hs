@@ -1,7 +1,13 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+
 module Text.XML.Pugi.Foreign.XPath where
 
 import Language.Haskell.TH
@@ -29,7 +35,7 @@ foreign import ccall new_xpath_query_no_variable :: CString -> IO (Ptr (XPath a)
 foreign import ccall xpath_query_evaluate_boolean  :: Ptr (XPath Bool)         -> Ptr n -> IO CInt
 foreign import ccall xpath_query_evaluate_number   :: Ptr (XPath Double)       -> Ptr n -> IO CDouble
 foreign import ccall xpath_query_evaluate_string   :: Ptr (XPath S.ByteString) -> Ptr n -> IO CString
-foreign import ccall xpath_query_evaluate_node_set :: Ptr (XPath (NodeSet m))  -> Ptr n -> IO (Ptr (NodeSet m))
+foreign import ccall xpath_query_evaluate_node_set :: Ptr (XPath NodeSet)  -> Ptr n -> IO (Ptr (NodeSet m))
 
 foreign import ccall xpath_query_return_type :: Ptr (XPath a) -> IO XPathType
 foreign import ccall xpath_query_parse_is_success :: Ptr (XPath a) -> IO CInt
@@ -42,7 +48,7 @@ createXPath query = S.useAsCString query $ \c -> do
 createXPath' :: String -> XPath a
 createXPath' q = unsafeDupablePerformIO $ createXPath (fromString q)
 
-asNodeSet :: XPath (NodeSet m) -> XPath (NodeSet m)
+asNodeSet :: XPath NodeSet -> XPath NodeSet
 asNodeSet = id
 
 asDouble :: XPath Double -> XPath Double
@@ -83,23 +89,28 @@ xpath = QuasiQuoter
     , quoteDec  = error "xpath QQ can use as Exp only."
     }
 
-class EvalXPath a where
-    evaluateXPath :: NodeLike n => XPath a -> n k m -> IO a
+class EvalXPath (a :: poly) where
+    type XPathResult a (m :: MutableFlag)
+    evaluateXPath :: NodeLike n => XPath a -> n k m -> IO (XPathResult a m)
 
 instance EvalXPath Bool where
+    type XPathResult Bool m = Bool
     evaluateXPath (XPath xp) nd = withForeignPtr xp $ \x -> withNode nd $ \n ->
         toBool <$> xpath_query_evaluate_boolean x n
 
 instance EvalXPath Double where
+    type XPathResult Double m = Double
     evaluateXPath (XPath xp) nd = withForeignPtr xp $ \x -> withNode nd $ \n ->
         realToFrac <$> xpath_query_evaluate_number x n
 
 instance EvalXPath S.ByteString where
+    type XPathResult S.ByteString m = S.ByteString
     evaluateXPath (XPath xp) nd = withForeignPtr xp $ \x -> withNode nd $ \n -> do
         s <- xpath_query_evaluate_string x n
         S.packCString s <* free s
 
-instance EvalXPath (NodeSet m) where
+instance EvalXPath NodeSet where
+    type XPathResult NodeSet m = NodeSet m
     evaluateXPath (XPath xp) nd = withForeignPtr xp $ \x -> withNode nd $ \n -> do
         s <- xpath_query_evaluate_node_set x n
         l <- fromIntegral <$> xpath_node_set_size s
