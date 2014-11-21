@@ -1,5 +1,5 @@
 name:                pugixml
-version:             0.2.0
+version:             0.3.0
 synopsis:            pugixml binding.
 description:         pugixml binding. example: <Text-XML-Pugi.html>
 license:             MIT
