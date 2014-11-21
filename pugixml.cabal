@@ -1,5 +1,5 @@
 name:                pugixml
-version:             0.2.0
+version:             0.3.0
 synopsis:            pugixml binding.
 description:         pugixml binding. example: <Text-XML-Pugi.html>
 license:             MIT
@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Text.XML.Pugi
+                       Text.XML.Pugi.Mutable
                        Text.XML.Pugi.Const
   other-modules:       Text.XML.Pugi.Foreign.Const
                        Text.XML.Pugi.Foreign.Node

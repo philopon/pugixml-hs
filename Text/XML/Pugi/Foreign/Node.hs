@@ -108,8 +108,8 @@ foreign import ccall append_buffer :: Ptr n -> Ptr c -> CSize -> CUInt -> Encodi
 
 foreign import ccall node_print :: Ptr n -> FunPtr Writer -> CString -> FormatFlags -> Encoding -> CUInt -> IO ()
 
-foreign import ccall select_single_node :: Ptr n -> Ptr (XPath (NodeSet m)) -> IO (Ptr XNode)
-foreign import ccall select_nodes :: Ptr n -> Ptr (XPath (NodeSet m)) -> IO (Ptr (NodeSet m))
+foreign import ccall select_single_node :: Ptr n -> Ptr (XPath NodeSet) -> IO (Ptr XNode)
+foreign import ccall select_nodes :: Ptr n -> Ptr (XPath NodeSet) -> IO (Ptr (NodeSet m))
 
 nodeCommon :: NodeLike n => n k m -> (Ptr (n k m) -> IO (Ptr (Node_ l m))) -> IO (Maybe (Node_ l m))
 nodeCommon n f = withNode n $ \p -> do
@@ -213,17 +213,17 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
     findNode :: (Node -> Bool) -> n k m -> IO (Maybe (Node_ Unknown m))
     findNode f nd = nodeCommon nd $ \n -> with_node_pred f $ find_node n
 
-    mapSiblingM_ :: (Node_ Unknown m -> IO ()) -> n k m -> IO ()
+    mapSiblingM_ :: (Node_ Unknown m -> IO b) -> n k m -> IO ()
     mapSiblingM_ func n = withNode n $ \p -> do
-        let f e = func . Node =<< newForeignPtr_ e
+        let f e = () <$ (func . Node =<< newForeignPtr_ e)
         bracket (wrap_node_mapper f) freeHaskellFunPtr $ node_map_sibling p
 
-    mapAttrsM_ :: (S.ByteString -> S.ByteString -> IO ()) -> n k m -> IO ()
+    mapAttrsM_ :: (S.ByteString -> S.ByteString -> IO b) -> n k m -> IO ()
     mapAttrsM_ func n = withNode n $ \p -> do
         let f a = do
                 nm  <- attrName a
                 val <- attrValue a
-                func nm val
+                () <$ func nm val
         bracket (wrap_attr_mapper f) freeHaskellFunPtr $ node_map_attributes p
 
     path :: Char -> n k m -> IO S.ByteString
@@ -282,12 +282,12 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
         bracket (append_buffer n c (fromIntegral l) flags enc) delete_parse_result
         parse_is_success
 
-    selectSingleNode :: XPath (NodeSet m) -> n k m -> IO (XPathNode m)
+    selectSingleNode :: XPath NodeSet -> n k m -> IO (XPathNode m)
     selectSingleNode (XPath xp) nd =
         withNode nd $ \n -> withForeignPtr xp $ \x -> do
             select_single_node n x >>= peekXNode
 
-    selectNodes :: XPath (NodeSet m) -> n k m -> IO (NodeSet m)
+    selectNodes :: XPath NodeSet -> n k m -> IO (NodeSet m)
     selectNodes (XPath xp) nd = withNode nd $ \n -> withForeignPtr xp $ \x -> do
         p <- select_nodes n x
         l <- fromIntegral <$> xpath_node_set_size p

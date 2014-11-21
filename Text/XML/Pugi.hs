@@ -2,12 +2,22 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE CPP #-}
 
+-- | import/langauge
+--
+-- @
+-- \> :set -XOverloadedStrings -XQuasiQuotes
+-- \> import Text.XML.Pugi
+-- \> import qualified Text.XML.Pugi.Mutable as M
+-- @
+--
 -- | parse xml
 --
 -- @
@@ -33,24 +43,24 @@
 --
 -- @
 -- testHtml :: IO 'Document'
--- testHtml = 'create' $ \doc -\> do
---     decl <- 'appendDeclaration' \"xml\" doc
---     'appendAttrs' [(\"version\", \"1.0\"), (\"lang\", \"ja\")] decl
+-- testHtml = M.create $ \doc -\> do
+--     decl <- M.appendDeclaration \"xml\" doc
+--     M.appendAttrs [(\"version\", \"1.0\"), (\"lang\", \"ja\")] decl
 --
---     'appendDoctype' \"html\" doc
+--     M.appendDoctype \"html\" doc
 --
---     html <- 'appendElement' \"html\" doc
---     body <- appendElement \"body\" html
---     div_ <- appendElement \"div\"  body
---     a    <- appendElement \"a\"    div_
---     'appendAttr' \"href\" \"http:\/\/example.com\" a
---     txt  <- 'appendPCData' \"example.com\" a
+--     html <- M.appendElement \"html\" doc
+--     body <- M.appendElement \"body\" html
+--     div_ <- M.appendElement \"div\"  body
+--     a    <- M.appendElement \"a\"    div_
+--     M.appendAttr \"href\" \"http:\/\/example.com\" a
+--     txt  <- M.appendPCData \"example.com\" a
 --     return ()
 -- @
 --
 -- @
 -- -- testHtml for copy&paste to ghci.
--- \> doc \<- create $ \\doc -\> appendDeclaration \"xml\" doc >>= \\decl -\> appendAttrs [(\"version\", \"1.0\"), (\"lang\", \"ja\")] decl >> appendDoctype \"html\" doc >> appendElement \"html\" doc >>= \\html -\> appendElement \"body\" html >>= \\body -\> appendElement \"div\"  body >>= \\div_ -\> appendElement \"a\"    div_ >>= \\a -\> appendAttr \"href\" \"http:\/\/example.com\" a >> appendPCData \"example.com\" a >> return ()
+-- \> doc \<- M.create $ \\doc -\> M.appendDeclaration \"xml\" doc >>= \\decl -\> M.appendAttrs [(\"version\", \"1.0\"), (\"lang\", \"ja\")] decl >> M.appendDoctype \"html\" doc >> M.appendElement \"html\" doc >>= \\html -\> M.appendElement \"body\" html >>= \\body -\> M.appendElement \"div\"  body >>= \\div_ -\> M.appendElement \"a\"    div_ >>= \\a -\> M.appendAttr \"href\" \"http:\/\/example.com\" a >> M.appendPCData \"example.com\" a >> return ()
 --
 -- \> doc
 -- Document \<?xml version=\"1.0\" lang=\"ja\"?\>\<!DOCTYPE html\>\<html\>\<body\>\<div\>\<a href=\"http:\/\/example.com\"\>example.com\<\/a\>\<\/div\>\<\/body\>\<\/html\>
@@ -85,14 +95,14 @@
 -- modify xml
 --
 -- @
--- modify doc $ \\d -\> 'selectSingleNode' [xpath|\/\/a|] d >>= \\(Left a) -\> setOrAppendAttr \"href\" \"#\" a
+-- M.modify doc $ \\d -\> M.selectSingleNode [xpath|\/\/a|] d >>= \\(Left a) -\> M.setOrAppendAttr \"href\" \"#\" a
 -- Document \<?xml version=\"1.0\" lang=\"ja\"?\>\<!DOCTYPE html\>\<html\>\<body\>\<div\>\<a href=\"#\"\>example.com\<\/a\>\<\/div\>\<\/body\>\<\/html\>
 -- @
 -- 
 
 module Text.XML.Pugi
     ( -- * Document
-      Document_, Document, MutableDocument
+      Document_, Document, MutableDocument, MutableFlag(..)
       -- ** parse
     , D.ParseConfig(..), D.ParseException(..)
     , parse, D.parseFile
@@ -104,28 +114,18 @@ module Text.XML.Pugi
     , Node_, Node, MutableNode
     , NodeKind(..)
     , HasName, HasValue, HasAttribute, HasChildren
+    , asMutable, asImmutable
 
     -- ** getter
-    , M, NodeLike(..)
-
-    -- ** setter
-    , Modify
-    , create, modify
-    , MutableNodeLike(..)
-    , appendAttrs
-    , setOrAppendAttr
-    -- *** specified append/prepend child
-    , appendElement, prependElement
-    , appendDeclaration, prependDeclaration
-    , appendPCData, prependPCData
-    , appendCData, prependCData
-    , appendComment, prependComment
-    , appendDoctype, prependDoctype
-    , appendPi, prependPi
+    , NodeLike(..)
 
     -- * XPath
     , XPath
-    , X.EvalXPath
+#if __GLASGOW_HASKELL__ > 707
+    , X.EvalXPath(X.XPathResult)
+#else
+    , X.EvalXPath(..)
+#endif
     , X.xpath
     -- ** NodeSet
     , NodeSet, XPathNode, Attribute
@@ -137,9 +137,6 @@ module Text.XML.Pugi
     , module Text.XML.Pugi.Const
     , def
     ) where
-
-import Control.Applicative
-import Control.Monad
 
 import Foreign.C.Types
 
@@ -178,75 +175,57 @@ instance Eq (Node_ k Immutable) where
 instance Eq (Document_ k Immutable) where
     (==) = nodeEqual
 
--- |
--- @
--- M Immutable a = a
--- M Mutable   a = 'Modify' a
--- @
---
-type family M (m :: MutableFlag) a
-type instance M Immutable a = a
-type instance M Mutable   a = Modify a
-
--- |
--- @
--- instance NodeLike 'Document_' Immutable
--- instance NodeLike 'Node_'     Immutable
--- instance NodeLike 'Document_' Mutable
--- instance NodeLike 'Node_'     Mutable
--- @
---
-class NodeLike n m where
-    asNode                 :: n k m -> M m (Node_ k m)
-    nodeEqual              :: n k m -> n l o -> M m Bool
-    forgetNodeKind         :: n k m -> n Unknown m
+class NodeLike n where
+    asNode                 :: n k Immutable -> Node_ k Immutable
+    nodeEqual              :: n k Immutable -> n l Immutable -> Bool
+    forgetNodeKind         :: n k Immutable -> n Unknown Immutable
     forgetNodeKind = unsafeCoerce
     {-# INLINE forgetNodeKind #-}
-    prettyNode             :: D.PrettyConfig -> Int -> n k m -> M m L.ByteString
-    hashValue              :: n k m -> M m CSize
-    nodeType               :: n k m -> M m NodeType
-    getName                :: HasName  k => n k m -> M m S.ByteString
-    getValue               :: HasValue k => n k m -> M m S.ByteString
-    parent                 :: n k m -> M m (Maybe (Node_ Unknown m))
-    firstChild             :: HasChildren k => n k m -> M m (Maybe (Node_ Unknown m))
-    lastChild              :: HasChildren k => n k m -> M m (Maybe (Node_ Unknown m))
-    nextSibling            :: n k m -> M m (Maybe (Node_ Unknown m))
-    prevSibling            :: n k m -> M m (Maybe (Node_ Unknown m))
-    child                  :: HasChildren  k => S.ByteString -> n k m -> M m (Maybe (Node_ Unknown m))
-    attribute              :: HasAttribute k => S.ByteString -> n k m -> M m (Maybe S.ByteString)
-    nextSiblingByName      :: S.ByteString -> n k m -> M m (Maybe (Node_ Unknown m))
-    prevSiblingByName      :: S.ByteString -> n k m -> M m (Maybe (Node_ Unknown m))
+    prettyNode             :: D.PrettyConfig -> Int -> n k Immutable -> L.ByteString
+    hashValue              :: n k Immutable -> CSize
+    nodeType               :: n k Immutable -> NodeType
+    getName                :: HasName  k => n k Immutable -> S.ByteString
+    getValue               :: HasValue k => n k Immutable -> S.ByteString
+    parent                 :: n k Immutable -> Maybe Node
+    firstChild             :: HasChildren k => n k Immutable -> Maybe Node
+    lastChild              :: HasChildren k => n k Immutable -> Maybe Node
+    nextSibling            :: n k Immutable -> Maybe Node
+    prevSibling            :: n k Immutable -> Maybe Node
+    child                  :: HasChildren  k => S.ByteString -> n k Immutable -> Maybe Node
+    attribute              :: HasAttribute k => S.ByteString -> n k Immutable -> Maybe S.ByteString
+    nextSiblingByName      :: S.ByteString -> n k Immutable -> Maybe Node
+    prevSiblingByName      :: S.ByteString -> n k Immutable -> Maybe Node
     findChildByNameAndAttr :: HasChildren k
                            => S.ByteString -- ^ node name
                            -> S.ByteString -- ^ attribute name
                            -> S.ByteString -- ^ attribute value
-                           -> n k m -> M m (Maybe (Node_ Unknown m))
+                           -> n k Immutable -> Maybe Node
     findChildByAttr        :: HasChildren k
                            => S.ByteString -- ^ attribute name
                            -> S.ByteString -- ^ attribute value
-                           -> n k m -> M m (Maybe (Node_ Unknown m))
-    childValue             :: HasChildren k => n k m -> M m S.ByteString
-    childValueByName       :: HasChildren k => S.ByteString -> n k m -> M m S.ByteString
-    text                   :: n k m -> M m S.ByteString
+                           -> n k Immutable -> Maybe Node
+    childValue             :: HasChildren k => n k Immutable -> S.ByteString
+    childValueByName       :: HasChildren k => S.ByteString -> n k Immutable -> S.ByteString
+    text                   :: n k Immutable -> S.ByteString
 
     -- | find attribute by predicate. since v0.2.0.
-    findAttribute          :: (S.ByteString -> S.ByteString -> Bool) -> n k m -> M m (Maybe Attribute)
+    findAttribute          :: (S.ByteString -> S.ByteString -> Bool) -> n k Immutable -> Maybe Attribute
 
     -- | find child by predicate. since v0.2.0.
-    findChild              :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
+    findChild              :: (Node -> Bool) -> n k Immutable -> Maybe Node
 
     -- | find node by predicate. since v0.2.0.
-    findNode               :: (Node -> Bool) -> n k m -> M m (Maybe (Node_ Unknown m))
-    mapSibling             :: (Node_ Unknown m -> a) -> n k m -> M m [a]
-    mapAttrs               :: HasAttribute k => (S.ByteString -> S.ByteString -> a) -> n k m -> M m [a]
-    path                   :: Char -> n k m -> M m S.ByteString
-    firstElementByPath     :: Char -> S.ByteString -> n k m -> M m (Maybe (Node_ Unknown m))
-    root                   :: n k m -> M m (Maybe (Node_ Unknown m))
-    evaluate               :: X.EvalXPath r => XPath r -> n k m -> M m r
-    selectSingleNode       :: XPath (NodeSet m) -> n k m -> M m (XPathNode m)
-    selectNodes            :: XPath (NodeSet m) -> n k m -> M m (NodeSet m)
+    findNode               :: (Node -> Bool) -> n k Immutable -> Maybe Node
+    mapSibling             :: (Node_ Unknown Immutable -> a) -> n k Immutable -> [a]
+    mapAttrs               :: HasAttribute k => (S.ByteString -> S.ByteString -> a) -> n k Immutable -> [a]
+    path                   :: Char -> n k Immutable -> S.ByteString
+    firstElementByPath     :: Char -> S.ByteString -> n k Immutable -> Maybe Node
+    root                   :: n k Immutable -> Maybe Node
+    evaluate               :: X.EvalXPath r => XPath r -> n k Immutable -> (X.XPathResult r Immutable)
+    selectSingleNode       :: XPath NodeSet -> n k Immutable -> XPathNode Immutable
+    selectNodes            :: XPath NodeSet -> n k Immutable -> NodeSet Immutable
 
-instance NodeLike Document_ Immutable where
+instance NodeLike Document_ where
     asNode              = unsafeDupablePerformIO . N.asNode
     nodeEqual a         = unsafeDupablePerformIO . N.nodeEqual a
     prettyNode cfg dph  = unsafeDupablePerformIO . N.prettyNode cfg dph
@@ -281,7 +260,7 @@ instance NodeLike Document_ Immutable where
     selectSingleNode x     = unsafeDupablePerformIO . N.selectSingleNode x
     selectNodes x          = unsafeDupablePerformIO . N.selectNodes x
 
-instance NodeLike Node_ Immutable where
+instance NodeLike Node_ where
     asNode              = unsafeDupablePerformIO . N.asNode
     nodeEqual a         = unsafeDupablePerformIO . N.nodeEqual a
     prettyNode cfg dph  = unsafeDupablePerformIO . N.prettyNode cfg dph
@@ -315,177 +294,6 @@ instance NodeLike Node_ Immutable where
     evaluate x             = unsafeDupablePerformIO . X.evaluateXPath x
     selectSingleNode x     = unsafeDupablePerformIO . N.selectSingleNode x
     selectNodes x          = unsafeDupablePerformIO . N.selectNodes x
-
-instance NodeLike Document_ Mutable where
-    asNode              = Modify . fmap Right . N.asNode
-    nodeEqual a         = Modify . fmap Right . N.nodeEqual a
-    prettyNode cfg dph  = Modify . fmap Right . N.prettyNode cfg dph
-    hashValue           = Modify . fmap Right . N.hashValue
-    nodeType            = Modify . fmap Right . N.nodeType
-    getName             = Modify . fmap Right . N.getName
-    getValue            = Modify . fmap Right . N.getValue
-    parent              = Modify . fmap Right . N.parent
-    firstChild          = Modify . fmap Right . N.firstChild
-    lastChild           = Modify . fmap Right . N.lastChild
-    nextSibling         = Modify . fmap Right . N.nextSibling
-    prevSibling         = Modify . fmap Right . N.prevSibling
-    child n             = Modify . fmap Right . N.child n
-    attribute n         = Modify . fmap Right . N.attribute n
-    nextSiblingByName n = Modify . fmap Right . N.nextSiblingByName n
-    prevSiblingByName n = Modify . fmap Right . N.prevSiblingByName n
-    findChildByNameAndAttr nn an av =
-        Modify . fmap Right . N.findChildByNameAndAttr nn an av
-    findChildByAttr an av  = Modify . fmap Right . N.findChildByAttr an av
-    childValue             = Modify . fmap Right . N.childValue
-    childValueByName n     = Modify . fmap Right . N.childValueByName n
-    text                   = Modify . fmap Right . N.text
-    findAttribute f        = Modify . fmap Right . N.findAttribute f
-    findChild f            = Modify . fmap Right . N.findChild f
-    findNode f             = Modify . fmap Right . N.findNode f
-    mapSibling f           = Modify . fmap Right . N.mapSiblingM (return . f)
-    mapAttrs f             = Modify . fmap Right . N.mapAttrsM (\k v -> return $ f k v)
-    path c                 = Modify . fmap Right . N.path c
-    firstElementByPath c p = Modify . fmap Right . N.firstElementByPath c p
-    root                   = Modify . fmap Right . N.root
-    evaluate x             = Modify . fmap Right . X.evaluateXPath x
-    selectSingleNode x     = Modify . fmap Right . N.selectSingleNode x
-    selectNodes x          = Modify . fmap Right . N.selectNodes x
-
-instance NodeLike Node_ Mutable where
-    asNode              = Modify . fmap Right . N.asNode
-    nodeEqual a         = Modify . fmap Right . N.nodeEqual a
-    prettyNode cfg dph  = Modify . fmap Right . N.prettyNode cfg dph
-    hashValue           = Modify . fmap Right . N.hashValue
-    nodeType            = Modify . fmap Right . N.nodeType
-    getName             = Modify . fmap Right . N.getName
-    getValue            = Modify . fmap Right . N.getValue
-    parent              = Modify . fmap Right . N.parent
-    firstChild          = Modify . fmap Right . N.firstChild
-    lastChild           = Modify . fmap Right . N.lastChild
-    nextSibling         = Modify . fmap Right . N.nextSibling
-    prevSibling         = Modify . fmap Right . N.prevSibling
-    child n             = Modify . fmap Right . N.child n
-    attribute n         = Modify . fmap Right . N.attribute n
-    nextSiblingByName n = Modify . fmap Right . N.nextSiblingByName n
-    prevSiblingByName n = Modify . fmap Right . N.prevSiblingByName n
-    findChildByNameAndAttr nn an av =
-        Modify . fmap Right . N.findChildByNameAndAttr nn an av
-    findChildByAttr an av  = Modify . fmap Right . N.findChildByAttr an av
-    childValue             = Modify . fmap Right . N.childValue
-    childValueByName n     = Modify . fmap Right . N.childValueByName n
-    text                   = Modify . fmap Right . N.text
-    findAttribute f        = Modify . fmap Right . N.findAttribute f
-    findChild f            = Modify . fmap Right . N.findChild f
-    findNode f             = Modify . fmap Right . N.findNode f
-    mapSibling f           = Modify . fmap Right . N.mapSiblingM (return . f)
-    mapAttrs f             = Modify . fmap Right . N.mapAttrsM (\k v -> return $ f k v)
-    path c                 = Modify . fmap Right . N.path c
-    firstElementByPath c p = Modify . fmap Right . N.firstElementByPath c p
-    root                   = Modify . fmap Right . N.root
-    evaluate x             = Modify . fmap Right . X.evaluateXPath x
-    selectSingleNode x     = Modify . fmap Right . N.selectSingleNode x
-    selectNodes x          = Modify . fmap Right . N.selectNodes x
-
-newtype Modify a = Modify { runModify :: IO (Either String a) }
-    deriving Functor
-
-instance Applicative Modify where
-    pure      = Modify . return . Right
-    mf <*> ma = Modify $ runModify mf >>= \case
-        Left  e -> return (Left e)
-        Right f -> runModify ma >>= \case
-            Left  e -> return (Left e)
-            Right a -> return (Right (f a))
-
-instance Monad Modify where
-    return = pure
-    ma >>= g = Modify $ runModify ma >>= \case
-        Left  e -> return (Left e)
-        Right a -> runModify $ g a
-    fail = Modify . return . Left
-
-instance Alternative Modify where
-    empty = Modify . return $ Left "empty"
-    ma <|> mb = Modify $ runModify ma >>= \case
-        Left  _ -> runModify mb
-        Right a -> return $ Right a
-
-instance MonadPlus Modify where
-    mzero = empty
-    mplus = (<|>)
-
-mLiftIO :: IO a -> Modify a
-mLiftIO io = Modify $ Right <$> io
-
--- | create document from scratch.
-create :: Monad m => (MutableDocument -> Modify ()) -> m Document
-create m = either fail (return . D.freezeDocument) . unsafeDupablePerformIO . runModify $ do
-    d <- mLiftIO D.createDocument
-    m d
-    return d
-
--- | modify document.
-modify :: Monad m => Document -> (MutableDocument -> Modify ()) -> m Document
-modify prt m = either fail (return . D.freezeDocument) . unsafePerformIO . runModify $ do
-    d <- mLiftIO $ D.copyDocument prt
-    m d
-    return d
-
-appendElement :: (HasChildren k, MutableNodeLike n)
-              => S.ByteString -> n k Mutable -> Modify (MutableNode Element)
-appendElement n e = appendChild nodeTypeElement e >>= \r -> setName n r >> return r
-
-prependElement :: (HasChildren k, MutableNodeLike n)
-               => S.ByteString -> n k Mutable -> Modify (MutableNode Element)
-prependElement n e = prependChild nodeTypeElement e >>= \r -> setName n r >> return r
-
-appendDeclaration :: (HasChildren k, MutableNodeLike n)
-                  => S.ByteString -> n k Mutable -> Modify (MutableNode Declaration)
-appendDeclaration n e = appendChild nodeTypeDeclaration e >>= \r -> setName n r >> return r
-
-prependDeclaration :: (HasChildren k, MutableNodeLike n)
-                   => S.ByteString -> n k Mutable -> Modify (MutableNode Declaration)
-prependDeclaration n e = prependChild nodeTypeDeclaration e >>= \r -> setName n r >> return r
-
-appendPCData :: (HasChildren k, MutableNodeLike n)
-             => S.ByteString -> n k Mutable -> Modify (MutableNode PCData)
-appendPCData n e = appendChild nodeTypePCData e >>= \r -> setValue n r >> return r
-
-prependPCData :: (HasChildren k, MutableNodeLike n)
-              => S.ByteString -> n k Mutable -> Modify (MutableNode PCData)
-prependPCData n e = prependChild nodeTypePCData e >>= \r -> setValue n r >> return r
-
-appendCData :: (HasChildren k, MutableNodeLike n)
-            => S.ByteString -> n k Mutable -> Modify (MutableNode CData)
-appendCData n e = appendChild nodeTypeCData e >>= \r -> setValue n r >> return r
-
-prependCData :: (HasChildren k, MutableNodeLike n)
-             => S.ByteString -> n k Mutable -> Modify (MutableNode CData)
-prependCData n e = prependChild nodeTypeCData e >>= \r -> setValue n r >> return r
-
-appendComment :: (HasChildren k, MutableNodeLike n)
-              => S.ByteString -> n k Mutable -> Modify (MutableNode Comment)
-appendComment n e = appendChild nodeTypeComment e >>= \r -> setValue n r >> return r
-
-prependComment :: (HasChildren k, MutableNodeLike n)
-               => S.ByteString -> n k Mutable -> Modify (MutableNode Comment)
-prependComment n e = prependChild nodeTypeComment e >>= \r -> setValue n r >> return r
-
-appendDoctype :: (HasChildren k, MutableNodeLike n)
-              => S.ByteString -> n k Mutable -> Modify (MutableNode Doctype)
-appendDoctype n e = appendChild nodeTypeDoctype e >>= \r -> setValue n r >> return r
-
-prependDoctype :: (HasChildren k, MutableNodeLike n)
-               => S.ByteString -> n k Mutable -> Modify (MutableNode Doctype)
-prependDoctype n e = prependChild nodeTypeDoctype e >>= \r -> setValue n r >> return r
-
-appendPi :: (HasChildren k, MutableNodeLike n)
-         => S.ByteString -> S.ByteString -> n k Mutable -> Modify (MutableNode Pi)
-appendPi n v e = appendChild nodeTypePi e >>= \r -> setName n r >> setValue v r >> return r
-
-prependPi :: (HasChildren k, MutableNodeLike n)
-          => S.ByteString -> S.ByteString -> n k Mutable -> Modify (MutableNode Pi)
-prependPi n v e = prependChild nodeTypePi e >>= \r -> setName n r >> setValue v r >> return r
 
 class HasName (k :: NodeKind)
 instance HasName Element
@@ -510,108 +318,6 @@ class HasChildren (k :: NodeKind)
 instance HasChildren Element
 instance HasChildren Unknown
 
-class MutableNodeLike (n :: NodeKind -> MutableFlag -> *) where
-    setName        :: HasName      k => S.ByteString -> n k Mutable -> Modify ()
-    setValue       :: HasValue     k => S.ByteString -> n k Mutable -> Modify ()
-    appendAttr     :: HasAttribute k => S.ByteString -> S.ByteString -> n k Mutable -> Modify ()
-    prependAttr    :: HasAttribute k => S.ByteString -> S.ByteString -> n k Mutable -> Modify ()
-    setAttr        :: HasAttribute k => S.ByteString -> S.ByteString -> n k Mutable -> Modify ()
-    -- | generic appendChild method. Recommend to use 'appendElement' etc...
-    appendChild    :: HasChildren  k => NodeType -> n k Mutable -> Modify (MutableNode l)
-    -- | generic prependChild method. Recommend to use 'prependElement' etc...
-    prependChild   :: HasChildren  k => NodeType -> n k Mutable -> Modify (MutableNode l)
-    appendCopy     :: HasChildren  k => Node_ k a -> n l Mutable -> Modify (MutableNode k)
-    prependCopy    :: HasChildren  k => Node_ k a -> n l Mutable -> Modify (MutableNode k)
-    removeAttr     :: HasAttribute k => S.ByteString -> n k Mutable -> Modify ()
-    removeChild    :: HasChildren  k => Node_ k a -> n l Mutable -> Modify ()
-    appendFlagment :: HasChildren  k => D.ParseConfig -> S.ByteString -> n k Mutable -> Modify ()
-
-appendAttrs :: (MutableNodeLike n, HasAttribute k) => [Attribute] ->  n k Mutable -> Modify ()
-appendAttrs as n = mapM_ (\(k,v) -> appendAttr k v n) as
-
-instance MutableNodeLike Node_ where
-    setName        = isetName
-    setValue       = isetValue
-    appendAttr     = iappendAttr
-    prependAttr    = iprependAttr
-    setAttr        = isetAttr
-    appendChild    = iappendChild
-    prependChild   = iprependChild
-    appendCopy     = iappendCopy
-    prependCopy    = iprependCopy
-    removeAttr     = iremoveAttr
-    removeChild    = iremoveChild
-    appendFlagment = iappendFlagment
-
-instance MutableNodeLike Document_ where
-    setName        = isetName
-    setValue       = isetValue
-    appendAttr     = iappendAttr
-    prependAttr    = iprependAttr
-    setAttr        = isetAttr
-    appendChild    = iappendChild
-    prependChild   = iprependChild
-    appendCopy     = iappendCopy
-    prependCopy    = iprependCopy
-    removeAttr     = iremoveAttr
-    removeChild    = iremoveChild
-    appendFlagment = iappendFlagment
-
-setOrAppendAttr :: (HasAttribute k, MutableNodeLike n)
-                => S.ByteString -> S.ByteString -> n k Mutable -> Modify ()
-setOrAppendAttr k v n = setAttr k v n <|> appendAttr k v n
-
-isetName :: N.NodeLike n => S.ByteString -> n k Mutable -> Modify ()
-isetName n nd = mLiftIO (N.setName n nd) >>= 
-    flip unless (fail $ "setName: " ++ show n)
-
-isetValue :: N.NodeLike n => S.ByteString -> n k Mutable -> Modify ()
-isetValue n nd = mLiftIO (N.setValue n nd) >>=
-    flip unless (fail $ "setValue: " ++ show n)
-
-iappendAttr :: N.NodeLike n => S.ByteString -> S.ByteString
-            -> n k Mutable -> Modify ()
-iappendAttr k v n = mLiftIO (N.appendAttr k v n) >>=
-    flip unless (fail $ "appendAttr: " ++ show k ++ " = " ++ show v)
-
-iprependAttr :: N.NodeLike n => S.ByteString -> S.ByteString
-             -> n k Mutable -> Modify ()
-iprependAttr k v n = mLiftIO (N.prependAttr k v n) >>=
-    flip unless (fail $ "appendAttr: " ++ show k ++ " = " ++ show v)
-
-isetAttr :: N.NodeLike n => S.ByteString -> S.ByteString
-         -> n k Mutable -> Modify ()
-isetAttr k v n = mLiftIO (N.setAttr k v n) >>=
-    flip unless (fail $ "setAttr: " ++ show k ++ " = " ++ show v)
-
-iappendChild :: N.NodeLike n => NodeType -> n l Mutable -> Modify (MutableNode k)
-iappendChild t n = mLiftIO (N.appendChild t n) >>=
-    maybe (fail $ "appendChild: " ++ show t) return
-
-iprependChild :: N.NodeLike n => NodeType -> n l Mutable -> Modify (MutableNode k)
-iprependChild t n = mLiftIO (N.prependChild t n) >>=
-    maybe (fail $ "prependChild: " ++ show t) return
-
-iappendCopy :: N.NodeLike n => Node_ k a -> n l Mutable -> Modify (MutableNode k)
-iappendCopy t n = mLiftIO (N.appendCopy t n) >>=
-    maybe (fail "appendCopy") return
-
-iprependCopy :: N.NodeLike n => Node_ k a -> n l Mutable -> Modify (MutableNode k)
-iprependCopy t n = mLiftIO (N.prependCopy t n) >>=
-    maybe (fail "prependCopy") return
-
-iremoveAttr :: N.NodeLike n => S.ByteString -> n k Mutable -> Modify ()
-iremoveAttr n nd = mLiftIO (N.removeAttr n nd) >>=
-    flip unless (fail $ "removeAttr: " ++ show n)
-
-iremoveChild :: N.NodeLike n => Node_ l a -> n k Mutable -> Modify ()
-iremoveChild n nd = mLiftIO (N.removeChild n nd) >>=
-    flip unless (fail "removeChild")
-
-iappendFlagment :: N.NodeLike n => D.ParseConfig -> S.ByteString -> n k Mutable -> Modify ()
-iappendFlagment cfg str n = mLiftIO (N.appendBuffer cfg str n) >>=
-    flip unless (fail $ "appendFlagment: " ++ show str)
-
 nodeSetIndex :: NodeSet m -> Int -> XPathNode m
 nodeSetIndex n = unsafeDupablePerformIO . X.nodeSetIndex n
 
@@ -620,3 +326,11 @@ nodeSetMap f = unsafeDupablePerformIO . X.nodeSetMapM (return . f)
 
 nodeSetToList :: NodeSet m -> [XPathNode m]
 nodeSetToList = nodeSetMap id
+
+asMutable :: N.NodeLike n => n k Mutable -> n k Mutable
+asMutable = id
+{-# INLINE asMutable #-}
+
+asImmutable :: N.NodeLike n => n k Immutable -> n k Immutable
+asImmutable = id
+{-# INLINE asImmutable #-}
