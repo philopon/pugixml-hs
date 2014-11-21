@@ -121,7 +121,11 @@ module Text.XML.Pugi
 
     -- * XPath
     , XPath
+#if __GLASGOW_HASKELL__ > 707
     , X.EvalXPath(X.XPathResult)
+#else
+    , X.EvalXPath(..)
+#endif
     , X.xpath
     -- ** NodeSet
     , NodeSet, XPathNode, Attribute
