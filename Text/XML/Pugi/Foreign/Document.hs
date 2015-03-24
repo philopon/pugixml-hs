@@ -1,10 +1,14 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE CPP #-}
+
 module Text.XML.Pugi.Foreign.Document where
 
-import Control.Applicative
 import Control.Monad
 import Control.Exception
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 
 import Foreign.C
 import Foreign.Ptr

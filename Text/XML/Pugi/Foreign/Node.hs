@@ -1,14 +1,18 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE ImpredicativeTypes #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP #-}
+
 module Text.XML.Pugi.Foreign.Node where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Monad
 import Control.Exception
 
@@ -43,18 +47,18 @@ foreign import ccall node_type :: Ptr n -> IO NodeType
 foreign import ccall node_name  :: Ptr n -> IO CString
 foreign import ccall node_value :: Ptr n -> IO CString
 
-foreign import ccall node_parent           :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall node_first_child      :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall node_last_child       :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall node_next_sibling     :: Ptr n -> IO (Ptr (Node_ Unknown a))
-foreign import ccall node_previous_sibling :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_parent           :: Ptr n -> IO (Ptr (Node_ 'Unknown a))
+foreign import ccall node_first_child      :: Ptr n -> IO (Ptr (Node_ 'Unknown a))
+foreign import ccall node_last_child       :: Ptr n -> IO (Ptr (Node_ 'Unknown a))
+foreign import ccall node_next_sibling     :: Ptr n -> IO (Ptr (Node_ 'Unknown a))
+foreign import ccall node_previous_sibling :: Ptr n -> IO (Ptr (Node_ 'Unknown a))
 
-foreign import ccall node_child :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_child :: Ptr n -> CString -> IO (Ptr (Node_ 'Unknown a))
 foreign import ccall node_attribute :: Ptr n -> CString -> IO (Ptr Attr)
-foreign import ccall node_next_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
-foreign import ccall node_previous_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ Unknown a))
-foreign import ccall node_find_child_by_name_and_attribute :: Ptr n -> CString -> CString -> CString -> IO (Ptr (Node_ Unknown a))
-foreign import ccall node_find_child_by_attribute :: Ptr n -> CString -> CString -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_next_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ 'Unknown a))
+foreign import ccall node_previous_sibling_by_name :: Ptr n -> CString -> IO (Ptr (Node_ 'Unknown a))
+foreign import ccall node_find_child_by_name_and_attribute :: Ptr n -> CString -> CString -> CString -> IO (Ptr (Node_ 'Unknown a))
+foreign import ccall node_find_child_by_attribute :: Ptr n -> CString -> CString -> IO (Ptr (Node_ 'Unknown a))
 
 foreign import ccall node_child_value :: Ptr n -> IO CString
 foreign import ccall node_child_value_by_name :: Ptr n -> CString -> IO CString
@@ -74,8 +78,8 @@ foreign import ccall find_attribute :: Ptr n -> FunPtr AttrPred -> IO (Ptr Attr)
 foreign import ccall find_child     :: Ptr n -> FunPtr NodePred -> IO (Ptr (Node_ k m))
 foreign import ccall find_node      :: Ptr n -> FunPtr NodePred -> IO (Ptr (Node_ k m))
 
-type BeginEnd m = Ptr (Node_ Unknown m) -> IO CInt
-type ForEach  m = CInt -> Ptr (Node_ Unknown m) -> IO CInt
+type BeginEnd m = Ptr (Node_ 'Unknown m) -> IO CInt
+type ForEach  m = CInt -> Ptr (Node_ 'Unknown m) -> IO CInt
 foreign import ccall "wrapper" wrap_begin_end :: BeginEnd m -> IO (FunPtr (BeginEnd m))
 foreign import ccall "wrapper" wrap_for_each  :: ForEach  m -> IO (FunPtr (ForEach  m))
 
@@ -85,9 +89,9 @@ foreign import ccall node_map_attributes :: Ptr n -> FunPtr AttrMapper -> IO ()
 
 foreign import ccall node_path :: Ptr n -> CChar -> IO CString -- must be free
 
-foreign import ccall node_first_element_by_path :: Ptr n -> CString -> CChar -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_first_element_by_path :: Ptr n -> CString -> CChar -> IO (Ptr (Node_ 'Unknown a))
 
-foreign import ccall node_root :: Ptr n -> IO (Ptr (Node_ Unknown a))
+foreign import ccall node_root :: Ptr n -> IO (Ptr (Node_ 'Unknown a))
 
 foreign import ccall set_name  :: Ptr n -> CString -> IO CInt
 foreign import ccall set_value :: Ptr n -> CString -> IO CInt
@@ -149,18 +153,18 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
     getValue :: n k m -> IO S.ByteString
     getValue n = withNode n $ node_value >=> S.packCString
 
-    parent :: n k m -> IO (Maybe (Node_ Unknown m))
+    parent :: n k m -> IO (Maybe (Node_ 'Unknown m))
     parent n = nodeCommon n node_parent
-    firstChild :: n k m -> IO (Maybe (Node_ Unknown m))
+    firstChild :: n k m -> IO (Maybe (Node_ 'Unknown m))
     firstChild n = nodeCommon n node_first_child
-    lastChild :: n k m -> IO (Maybe (Node_ Unknown m))
+    lastChild :: n k m -> IO (Maybe (Node_ 'Unknown m))
     lastChild n = nodeCommon n node_last_child
-    nextSibling :: n k m -> IO (Maybe (Node_ Unknown m))
+    nextSibling :: n k m -> IO (Maybe (Node_ 'Unknown m))
     nextSibling n = nodeCommon n node_next_sibling
-    prevSibling :: n k m -> IO (Maybe (Node_ Unknown m))
+    prevSibling :: n k m -> IO (Maybe (Node_ 'Unknown m))
     prevSibling n = nodeCommon n node_previous_sibling
 
-    child :: S.ByteString -> n k m -> IO (Maybe (Node_ Unknown m))
+    child :: S.ByteString -> n k m -> IO (Maybe (Node_ 'Unknown m))
     child nm n = nodeCommon n $ \p -> S.useAsCString nm $ node_child p
 
     attribute :: S.ByteString -> n k m -> IO (Maybe S.ByteString)
@@ -170,22 +174,22 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
         then return Nothing
         else fmap Just $ attr_value attr >>= S.packCString
 
-    nextSiblingByName :: S.ByteString -> n k m -> IO (Maybe (Node_ Unknown m))
+    nextSiblingByName :: S.ByteString -> n k m -> IO (Maybe (Node_ 'Unknown m))
     nextSiblingByName nm n = nodeCommon n $ \p -> S.useAsCString nm $ node_next_sibling_by_name p
-    prevSiblingByName :: S.ByteString -> n k m -> IO (Maybe (Node_ Unknown m))
+    prevSiblingByName :: S.ByteString -> n k m -> IO (Maybe (Node_ 'Unknown m))
     prevSiblingByName nm n = nodeCommon n $ \p -> S.useAsCString nm $ node_previous_sibling_by_name p
 
     findChildByNameAndAttr :: S.ByteString -- ^ node name
                            -> S.ByteString -- ^ attribute name
                            -> S.ByteString -- ^ attribute value
-                           -> n k m -> IO (Maybe (Node_ Unknown m))
+                           -> n k m -> IO (Maybe (Node_ 'Unknown m))
     findChildByNameAndAttr nn an av n = nodeCommon n $ \p ->
         S.useAsCString nn $ \nn' -> S.useAsCString an $ \an' -> S.useAsCString av $ \av' ->
         node_find_child_by_name_and_attribute p nn' an' av'
 
     findChildByAttr :: S.ByteString -- ^ attribute name
                     -> S.ByteString -- ^ attribute value
-                    -> n k m -> IO (Maybe (Node_ Unknown m))
+                    -> n k m -> IO (Maybe (Node_ 'Unknown m))
     findChildByAttr an av n = nodeCommon n $ \p ->
         S.useAsCString an $ \an' -> S.useAsCString av $ \av' ->
         node_find_child_by_attribute p an' av'
@@ -207,13 +211,13 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
             then return Nothing
             else fmap Just $ (,) <$> (S.packCString =<< attr_name attr) <*> (S.packCString =<< attr_value attr)
 
-    findChild :: (Node -> Bool) -> n k m -> IO (Maybe (Node_ Unknown m))
+    findChild :: (Node -> Bool) -> n k m -> IO (Maybe (Node_ 'Unknown m))
     findChild f nd = nodeCommon nd $ \n -> with_node_pred f $ find_child n
 
-    findNode :: (Node -> Bool) -> n k m -> IO (Maybe (Node_ Unknown m))
+    findNode :: (Node -> Bool) -> n k m -> IO (Maybe (Node_ 'Unknown m))
     findNode f nd = nodeCommon nd $ \n -> with_node_pred f $ find_node n
 
-    mapSiblingM_ :: (Node_ Unknown m -> IO b) -> n k m -> IO ()
+    mapSiblingM_ :: (Node_ 'Unknown m -> IO b) -> n k m -> IO ()
     mapSiblingM_ func n = withNode n $ \p -> do
         let f e = () <$ (func . Node =<< newForeignPtr_ e)
         bracket (wrap_node_mapper f) freeHaskellFunPtr $ node_map_sibling p
@@ -230,53 +234,53 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
     path del node = withNode node $ \p ->
         bracket (node_path p (fromIntegral $ c2w del)) free $ S.packCString
 
-    firstElementByPath :: Char -> S.ByteString -> n k m -> IO (Maybe (Node_ Unknown m))
+    firstElementByPath :: Char -> S.ByteString -> n k m -> IO (Maybe (Node_ 'Unknown m))
     firstElementByPath del path_ node = nodeCommon node $ \p ->
         S.useAsCString path_ $ \d -> node_first_element_by_path p d (fromIntegral $ c2w del)
 
-    root :: n k m -> IO (Maybe (Node_ Unknown m))
+    root :: n k m -> IO (Maybe (Node_ 'Unknown m))
     root node = nodeCommon node $ node_root
 
-    setName :: S.ByteString -> n k Mutable -> IO Bool
+    setName :: S.ByteString -> n k 'Mutable -> IO Bool
     setName n node = withNode node $ \p -> S.useAsCString n $ \q ->
         toBool <$> set_name p q
-    setValue :: S.ByteString -> n k Mutable -> IO Bool
+    setValue :: S.ByteString -> n k 'Mutable -> IO Bool
     setValue n node = withNode node $ \p -> S.useAsCString n $ \q ->
         toBool <$> set_value p q
 
-    appendAttr :: S.ByteString -> S.ByteString -> n k Mutable -> IO Bool
+    appendAttr :: S.ByteString -> S.ByteString -> n k 'Mutable -> IO Bool
     appendAttr k v n = withNode n $ \np -> S.useAsCString k $ \kp -> S.useAsCString v $ \vp ->
         toBool <$> append_attribute np kp vp
-    prependAttr :: S.ByteString -> S.ByteString -> n k Mutable -> IO Bool
+    prependAttr :: S.ByteString -> S.ByteString -> n k 'Mutable -> IO Bool
     prependAttr k v n = withNode n $ \np -> S.useAsCString k $ \kp -> S.useAsCString v $ \vp ->
         toBool <$> prepend_attribute np kp vp
 
-    setAttr :: S.ByteString -> S.ByteString -> n k Mutable -> IO Bool
+    setAttr :: S.ByteString -> S.ByteString -> n k 'Mutable -> IO Bool
     setAttr k v n = withNode n $ \np -> S.useAsCString k $ \kp ->
         bracket (node_attribute np kp) delete_attr $ \attr ->
             if attr == nullPtr
                 then return False
                 else toBool <$> S.useAsCString v (attr_set_value attr)
 
-    appendChild :: NodeType -> n k Mutable -> IO (Maybe (Node_ l Mutable))
+    appendChild :: NodeType -> n k 'Mutable -> IO (Maybe (Node_ l 'Mutable))
     appendChild t n = nodeCommon n $ \p -> append_child p t
-    prependChild :: NodeType -> n k Mutable -> IO (Maybe (Node_ l Mutable))
+    prependChild :: NodeType -> n k 'Mutable -> IO (Maybe (Node_ l 'Mutable))
     prependChild t n = nodeCommon n $ \p -> prepend_child p t
 
-    appendCopy :: Node_ k a -> n l Mutable -> IO (Maybe (Node_ k Mutable))
+    appendCopy :: Node_ k a -> n l 'Mutable -> IO (Maybe (Node_ k 'Mutable))
     appendCopy t n = nodeCommon n $ \p -> withNode t (append_copy p)
-    prependCopy :: Node_ k a -> n l Mutable -> IO (Maybe (Node_ k Mutable))
+    prependCopy :: Node_ k a -> n l 'Mutable -> IO (Maybe (Node_ k 'Mutable))
     prependCopy t n = nodeCommon n $ \p -> withNode t (prepend_copy p)
 
-    removeAttr :: S.ByteString -> n k Mutable -> IO Bool
+    removeAttr :: S.ByteString -> n k 'Mutable -> IO Bool
     removeAttr a n = withNode n $ \p -> S.useAsCString a $ \c ->
         toBool <$> remove_attribute p c
 
-    removeChild :: Node_ k a -> n l Mutable -> IO Bool
+    removeChild :: Node_ k a -> n l 'Mutable -> IO Bool
     removeChild c n = withNode n $ \p -> withNode c $ \q ->
         toBool <$> remove_child p q
 
-    appendBuffer :: ParseConfig -> S.ByteString -> n k Mutable -> IO Bool
+    appendBuffer :: ParseConfig -> S.ByteString -> n k 'Mutable -> IO Bool
     appendBuffer (ParseConfig (ParseFlags flags) enc) str node = fmap toBool $
         withNode node $ \n -> S.unsafeUseAsCStringLen str $ \(c,l) ->
         bracket (append_buffer n c (fromIntegral l) flags enc) delete_parse_result
@@ -304,7 +308,7 @@ class NodeLike (n :: NodeKind -> MutableFlag -> *) where
 
 -- xpath_node
 foreign import ccall delete_xpath_node :: Ptr XNode -> IO ()
-foreign import ccall xpath_node_node :: Ptr XNode -> IO (Ptr (Node_ Unknown m))
+foreign import ccall xpath_node_node :: Ptr XNode -> IO (Ptr (Node_ 'Unknown m))
 foreign import ccall xpath_node_attribute :: Ptr XNode -> IO (Ptr Attr)
 
 foreign import ccall "&delete_xpath_node_set" finalizerXpathNodeSet :: FinalizerPtr (NodeSet m)
@@ -321,7 +325,7 @@ peekXNode p = do
         else Left . Node <$> newForeignPtr finalizerNode n
 
 
-mapSiblingM :: NodeLike n => (Node_ Unknown m -> IO a) -> n l m -> IO [a]
+mapSiblingM :: NodeLike n => (Node_ 'Unknown m -> IO a) -> n l m -> IO [a]
 mapSiblingM func node = do
     ref <- newIORef id
     mapSiblingM_ (\n -> func n >>= \a -> modifyIORef ref (\f -> f . (a:))) node

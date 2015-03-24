@@ -1,14 +1,14 @@
 name:                pugixml
 version:             0.3.0
 synopsis:            pugixml binding.
-description:         pugixml binding. example: <Text-XML-Pugi.html>
+description:         pugixml binding. example: <docs/Text-XML-Pugi.html>
 license:             MIT
 license-file:        LICENSE
 author:              HirotomoMoriwaki<philopon.dependence@gmail.com>
 maintainer:          HirotomoMoriwaki<philopon.dependence@gmail.com>
 Homepage:            https://github.com/philopon/pugixml-hs
 Bug-reports:         https://github.com/philopon/pugixml-hs/issues
-copyright:           (c) 2014 Hirotomo Moriwaki
+copyright:           (c) 2014-2015 Hirotomo Moriwaki
 category:            Text, XML
 build-type:          Simple
 extra-source-files:  pugixml-1.4/pugiconfig.hpp
@@ -28,10 +28,10 @@ library
                        Text.XML.Pugi.Foreign.Attr
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base               >=4.6  && <4.8
+  build-depends:       base               >=4.6  && <4.9
                      , bytestring         >=0.10 && <0.11
                      , data-default-class >=0.0  && <0.1
-                     , template-haskell   >=2.8  && <2.10
+                     , template-haskell   >=2.8  && <2.11
   -- hs-source-dirs:      
   c-sources:           pugixml-1.4/pugixml.cpp cbit/wrapper.cc
   include-dirs:        pugixml-1.4
@@ -41,7 +41,7 @@ library
 
 test-suite test
   main-is:             test.hs
-  build-depends:       base               >=4.6  && <4.8
+  build-depends:       base
                      , bytestring         >=0.10 && <0.11
                      , pugixml
                      , tasty              >=0.10 && <0.11

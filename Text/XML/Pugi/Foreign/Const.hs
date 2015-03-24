@@ -1,4 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
+
 module Text.XML.Pugi.Foreign.Const where
 
 import Foreign.C
@@ -6,7 +8,10 @@ import Foreign.C
 import Data.Default.Class
 import Data.Bits
 import Data.List
+
+#if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
+#endif
 
 foreign import ccall unsafe pugixml_version :: CInt
 

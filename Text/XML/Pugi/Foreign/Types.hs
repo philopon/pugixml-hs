@@ -20,12 +20,12 @@ data NodeKind = Element -- ^ \<name\>children\</name\>
               | Unknown
 
 newtype Document_ (k :: NodeKind) (m :: MutableFlag) = Document (ForeignPtr (Document_ k m))
-type Document = Document_ Unknown Immutable
-type MutableDocument = Document_ Unknown Mutable
+type Document = Document_ 'Unknown 'Immutable
+type MutableDocument = Document_ 'Unknown 'Mutable
 
 newtype Node_ (k :: NodeKind) (m :: MutableFlag) = Node (ForeignPtr (Node_ k m))
-type Node = Node_ Unknown Immutable
-type MutableNode k = Node_ k Mutable
+type Node = Node_ 'Unknown 'Immutable
+type MutableNode k = Node_ k 'Mutable
 
 newtype ParseResult = ParseResult (Ptr ParseResult)
 
@@ -38,4 +38,4 @@ instance Show (NodeSet m) where
 data Attr
 data XNode
 type Attribute = (S.ByteString, S.ByteString)
-type XPathNode m = Either (Node_ Unknown m) Attribute
+type XPathNode m = Either (Node_ 'Unknown m) Attribute

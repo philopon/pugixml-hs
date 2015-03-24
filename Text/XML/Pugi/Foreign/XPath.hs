@@ -7,13 +7,16 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE CPP #-}
 
 module Text.XML.Pugi.Foreign.XPath where
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Exception
 
 import Foreign.ForeignPtr

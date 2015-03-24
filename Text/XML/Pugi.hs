@@ -10,6 +10,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE CPP #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | import/langauge
 --
 -- @
@@ -163,67 +165,67 @@ parse cfg str = unsafePerformIO $ D.parse cfg str
 pretty :: D.PrettyConfig -> Document -> L.ByteString
 pretty cfg doc = unsafeDupablePerformIO $ D.pretty cfg doc
 
-instance Show (Node_ k Immutable) where
+instance Show (Node_ k 'Immutable) where
     show = ("Node " ++) . L8.unpack . prettyNode def {D.prettyFlags = formatRaw} 0
 
-instance Show (Document_ k Immutable) where
+instance Show (Document_ k 'Immutable) where
     show = ("Document " ++) . L8.unpack . prettyNode def {D.prettyFlags = formatRaw} 0
 
-instance Eq (Node_ k Immutable) where
+instance Eq (Node_ k 'Immutable) where
     (==) = nodeEqual
 
-instance Eq (Document_ k Immutable) where
+instance Eq (Document_ k 'Immutable) where
     (==) = nodeEqual
 
 class NodeLike n where
-    asNode                 :: n k Immutable -> Node_ k Immutable
-    nodeEqual              :: n k Immutable -> n l Immutable -> Bool
-    forgetNodeKind         :: n k Immutable -> n Unknown Immutable
+    asNode                 :: n k 'Immutable -> Node_ k 'Immutable
+    nodeEqual              :: n k 'Immutable -> n l 'Immutable -> Bool
+    forgetNodeKind         :: n k 'Immutable -> n 'Unknown 'Immutable
     forgetNodeKind = unsafeCoerce
     {-# INLINE forgetNodeKind #-}
-    prettyNode             :: D.PrettyConfig -> Int -> n k Immutable -> L.ByteString
-    hashValue              :: n k Immutable -> CSize
-    nodeType               :: n k Immutable -> NodeType
-    getName                :: HasName  k => n k Immutable -> S.ByteString
-    getValue               :: HasValue k => n k Immutable -> S.ByteString
-    parent                 :: n k Immutable -> Maybe Node
-    firstChild             :: HasChildren k => n k Immutable -> Maybe Node
-    lastChild              :: HasChildren k => n k Immutable -> Maybe Node
-    nextSibling            :: n k Immutable -> Maybe Node
-    prevSibling            :: n k Immutable -> Maybe Node
-    child                  :: HasChildren  k => S.ByteString -> n k Immutable -> Maybe Node
-    attribute              :: HasAttribute k => S.ByteString -> n k Immutable -> Maybe S.ByteString
-    nextSiblingByName      :: S.ByteString -> n k Immutable -> Maybe Node
-    prevSiblingByName      :: S.ByteString -> n k Immutable -> Maybe Node
+    prettyNode             :: D.PrettyConfig -> Int -> n k 'Immutable -> L.ByteString
+    hashValue              :: n k 'Immutable -> CSize
+    nodeType               :: n k 'Immutable -> NodeType
+    getName                :: HasName  k => n k 'Immutable -> S.ByteString
+    getValue               :: HasValue k => n k 'Immutable -> S.ByteString
+    parent                 :: n k 'Immutable -> Maybe Node
+    firstChild             :: HasChildren k => n k 'Immutable -> Maybe Node
+    lastChild              :: HasChildren k => n k 'Immutable -> Maybe Node
+    nextSibling            :: n k 'Immutable -> Maybe Node
+    prevSibling            :: n k 'Immutable -> Maybe Node
+    child                  :: HasChildren  k => S.ByteString -> n k 'Immutable -> Maybe Node
+    attribute              :: HasAttribute k => S.ByteString -> n k 'Immutable -> Maybe S.ByteString
+    nextSiblingByName      :: S.ByteString -> n k 'Immutable -> Maybe Node
+    prevSiblingByName      :: S.ByteString -> n k 'Immutable -> Maybe Node
     findChildByNameAndAttr :: HasChildren k
                            => S.ByteString -- ^ node name
                            -> S.ByteString -- ^ attribute name
                            -> S.ByteString -- ^ attribute value
-                           -> n k Immutable -> Maybe Node
+                           -> n k 'Immutable -> Maybe Node
     findChildByAttr        :: HasChildren k
                            => S.ByteString -- ^ attribute name
                            -> S.ByteString -- ^ attribute value
-                           -> n k Immutable -> Maybe Node
-    childValue             :: HasChildren k => n k Immutable -> S.ByteString
-    childValueByName       :: HasChildren k => S.ByteString -> n k Immutable -> S.ByteString
-    text                   :: n k Immutable -> S.ByteString
+                           -> n k 'Immutable -> Maybe Node
+    childValue             :: HasChildren k => n k 'Immutable -> S.ByteString
+    childValueByName       :: HasChildren k => S.ByteString -> n k 'Immutable -> S.ByteString
+    text                   :: n k 'Immutable -> S.ByteString
 
     -- | find attribute by predicate. since v0.2.0.
-    findAttribute          :: (S.ByteString -> S.ByteString -> Bool) -> n k Immutable -> Maybe Attribute
+    findAttribute          :: (S.ByteString -> S.ByteString -> Bool) -> n k 'Immutable -> Maybe Attribute
 
     -- | find child by predicate. since v0.2.0.
-    findChild              :: (Node -> Bool) -> n k Immutable -> Maybe Node
+    findChild              :: (Node -> Bool) -> n k 'Immutable -> Maybe Node
 
     -- | find node by predicate. since v0.2.0.
-    findNode               :: (Node -> Bool) -> n k Immutable -> Maybe Node
-    mapSibling             :: (Node_ Unknown Immutable -> a) -> n k Immutable -> [a]
-    mapAttrs               :: HasAttribute k => (S.ByteString -> S.ByteString -> a) -> n k Immutable -> [a]
-    path                   :: Char -> n k Immutable -> S.ByteString
-    firstElementByPath     :: Char -> S.ByteString -> n k Immutable -> Maybe Node
-    root                   :: n k Immutable -> Maybe Node
-    evaluate               :: X.EvalXPath r => XPath r -> n k Immutable -> (X.XPathResult r Immutable)
-    selectSingleNode       :: XPath NodeSet -> n k Immutable -> XPathNode Immutable
-    selectNodes            :: XPath NodeSet -> n k Immutable -> NodeSet Immutable
+    findNode               :: (Node -> Bool) -> n k 'Immutable -> Maybe Node
+    mapSibling             :: (Node_ 'Unknown 'Immutable -> a) -> n k 'Immutable -> [a]
+    mapAttrs               :: HasAttribute k => (S.ByteString -> S.ByteString -> a) -> n k 'Immutable -> [a]
+    path                   :: Char -> n k 'Immutable -> S.ByteString
+    firstElementByPath     :: Char -> S.ByteString -> n k 'Immutable -> Maybe Node
+    root                   :: n k 'Immutable -> Maybe Node
+    evaluate               :: X.EvalXPath r => XPath r -> n k 'Immutable -> (X.XPathResult r 'Immutable)
+    selectSingleNode       :: XPath NodeSet -> n k 'Immutable -> XPathNode 'Immutable
+    selectNodes            :: XPath NodeSet -> n k 'Immutable -> NodeSet 'Immutable
 
 instance NodeLike Document_ where
     asNode              = unsafeDupablePerformIO . N.asNode
@@ -296,27 +298,27 @@ instance NodeLike Node_ where
     selectNodes x          = unsafeDupablePerformIO . N.selectNodes x
 
 class HasName (k :: NodeKind)
-instance HasName Element
-instance HasName Declaration
-instance HasName Pi
-instance HasName Unknown
+instance HasName 'Element
+instance HasName 'Declaration
+instance HasName 'Pi
+instance HasName 'Unknown
 
 class HasValue (k :: NodeKind)
-instance HasValue PCData
-instance HasValue CData
-instance HasValue Comment
-instance HasValue Doctype
-instance HasValue Pi
-instance HasValue Unknown
+instance HasValue 'PCData
+instance HasValue 'CData
+instance HasValue 'Comment
+instance HasValue 'Doctype
+instance HasValue 'Pi
+instance HasValue 'Unknown
 
 class HasAttribute (k :: NodeKind)
-instance HasAttribute Element
-instance HasAttribute Declaration
-instance HasAttribute Unknown
+instance HasAttribute 'Element
+instance HasAttribute 'Declaration
+instance HasAttribute 'Unknown
 
 class HasChildren (k :: NodeKind)
-instance HasChildren Element
-instance HasChildren Unknown
+instance HasChildren 'Element
+instance HasChildren 'Unknown
 
 nodeSetIndex :: NodeSet m -> Int -> XPathNode m
 nodeSetIndex n = unsafeDupablePerformIO . X.nodeSetIndex n
@@ -327,10 +329,10 @@ nodeSetMap f = unsafeDupablePerformIO . X.nodeSetMapM (return . f)
 nodeSetToList :: NodeSet m -> [XPathNode m]
 nodeSetToList = nodeSetMap id
 
-asMutable :: N.NodeLike n => n k Mutable -> n k Mutable
+asMutable :: N.NodeLike n => n k 'Mutable -> n k 'Mutable
 asMutable = id
 {-# INLINE asMutable #-}
 
-asImmutable :: N.NodeLike n => n k Immutable -> n k Immutable
+asImmutable :: N.NodeLike n => n k 'Immutable -> n k 'Immutable
 asImmutable = id
 {-# INLINE asImmutable #-}

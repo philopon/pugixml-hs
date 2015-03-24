@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
+#if MIN_VERSION_base(4,9,0)
 import Control.Applicative
+#endif
 
 import Test.Tasty
 import Test.Tasty.HUnit
