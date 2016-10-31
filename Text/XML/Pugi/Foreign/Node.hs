@@ -1,6 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
