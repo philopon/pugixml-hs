@@ -8,7 +8,7 @@ author:              HirotomoMoriwaki<philopon.dependence@gmail.com>
 maintainer:          HirotomoMoriwaki<philopon.dependence@gmail.com>
 Homepage:            https://github.com/philopon/pugixml-hs
 Bug-reports:         https://github.com/philopon/pugixml-hs/issues
-copyright:           (c) 2014-2015 Hirotomo Moriwaki
+copyright:           (c) 2014-2016 Hirotomo Moriwaki
 category:            Text, XML
 build-type:          Simple
 extra-source-files:  pugixml-1.4/pugiconfig.hpp
