@@ -30,7 +30,7 @@ library
   -- other-extensions:    
   build-depends:       base               >=4.6  && <4.10
                      , bytestring         >=0.10 && <0.11
-                     , data-default-class >=0.0  && <0.1
+                     , data-default-class >=0.0  && <0.2
                      , template-haskell   >=2.8  && <2.12
   -- hs-source-dirs:      
   c-sources:           pugixml-1.4/pugixml.cpp cbit/wrapper.cc
