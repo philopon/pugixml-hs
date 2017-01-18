@@ -2,3 +2,5 @@ pugixml-hs [![Build Status](https://travis-ci.org/philopon/pugixml-hs.svg?branch
 ===
 
 pugixml binding for haskell.
+
+Be warned that this libary can segfaults, see https://github.com/philopon/pugixml-hs/issues/5.
